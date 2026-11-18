@@ -21,6 +21,6 @@
     "**/*.tsx"
   ],
   "exclude": [
-    "node_modules", "tests", "preview", "vite.config.ts", "server", "index.server.ts"
+    "node_modules", "tests", "preview", "vite.config.ts", "server", "index.server.ts", "celebration"
   ]
 }
