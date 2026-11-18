@@ -1,0 +1,3 @@
+// The plugin's logo as a single-color icon (assets/logo-mono.svg): an open group with two workspaces and a collapsed
+// group. It draws in the surrounding text color, so Paseo can tint it like its own icons.
+export const logoSvg = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M3 4l2 2 2-2\"/><path d=\"M10 5h11\"/><path d=\"M4.5 9.5v6\"/><circle cx=\"9.5\" cy=\"10.5\" r=\"1.5\" fill=\"currentColor\" stroke=\"none\"/><path d=\"M13 10.5h7\"/><circle cx=\"9.5\" cy=\"15\" r=\"1.5\" fill=\"currentColor\" stroke=\"none\"/><path d=\"M13 15h5\"/><path d=\"M4 18l2 2-2 2\"/><path d=\"M10 20h7\"/></svg>";

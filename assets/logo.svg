@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" role="img" aria-label="Workspace organizer">
+  <title>Workspace organizer</title>
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#262B3A"/>
+      <stop offset="1" stop-color="#14171F"/>
+    </linearGradient>
+  </defs>
+  <!-- The tile -->
+  <rect x="4" y="4" width="120" height="120" rx="28" fill="url(#tile)"/>
+  <rect x="4.75" y="4.75" width="118.5" height="118.5" rx="27.25" fill="none" stroke="#FFFFFF" stroke-opacity="0.08" stroke-width="1.5"/>
+  <!-- An open group: chevron and name -->
+  <path d="M24 31 L30 37 L36 31" fill="none" stroke="#A5ACB9" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="44" y="29" width="54" height="10" rx="5" fill="#A5ACB9"/>
+  <!-- Its nesting line -->
+  <rect x="28" y="47" width="3" height="42" rx="1.5" fill="#FFFFFF" fill-opacity="0.14"/>
+  <!-- Two workspaces, each with a status dot -->
+  <circle cx="46" cy="58" r="6" fill="#A78BFA"/>
+  <rect x="58" y="53" width="44" height="10" rx="5" fill="#E7E9EE"/>
+  <circle cx="46" cy="80" r="6" fill="#34D399"/>
+  <rect x="58" y="75" width="32" height="10" rx="5" fill="#E7E9EE" fill-opacity="0.8"/>
+  <!-- A collapsed group -->
+  <path d="M27 96 L33 102 L27 108" fill="none" stroke="#A5ACB9" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="44" y="97" width="38" height="10" rx="5" fill="#7DD3FC"/>
+</svg>
