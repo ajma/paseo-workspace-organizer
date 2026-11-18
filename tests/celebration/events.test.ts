@@ -1,10 +1,13 @@
-import { test } from "node:test";
+// @vitest-environment node
+import { afterEach, test, vi } from "vitest";
 import assert from "node:assert/strict";
 import type { PluginClientContext } from "@getpaseo/plugin/client";
-import { startLiveEvents, reportPresented } from "../client/events";
-import { createCelebrationStore } from "../client/store";
-import { createBroker } from "../server/broker";
-import { previewCelebration, reportCelebration } from "../shared/celebration";
+import { startLiveEvents, reportPresented } from "../../client/celebration/events";
+import { createCelebrationStore } from "../../client/celebration/store";
+import { createBroker } from "../../server/celebration/broker";
+import { previewCelebration, reportCelebration } from "../../shared/celebration/celebration";
+
+afterEach(() => { vi.useRealTimers(); });
 
 async function flush() {
   for (let i = 0; i < 8; i++) await Promise.resolve();
@@ -82,36 +85,36 @@ function connection() {
     },
   };
 }
-test("client recovers queued events after a restored snapshot", async (t) => {
-  t.mock.timers.enable({ apis: ["setTimeout"] });
+test("client recovers queued events after a restored snapshot", async () => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
   const stream = connection();
   const store = createCelebrationStore();
   const stop = startLiveEvents(stream.client, store);
   try {
     await flush();
     stream.broker.publish(previewCelebration);
-    t.mock.timers.tick(1000);
+    vi.advanceTimersByTime(1000);
     await flush();
     assert.equal(store.getSnapshot()?.id, "preview");
     stream.broker.presented("preview");
     store.dismiss();
     stream.broker.publish({ ...previewCelebration, id: "offline" });
     stream.restore();
-    t.mock.timers.tick(1000);
+    vi.advanceTimersByTime(1000);
     await flush();
     assert.equal(store.getSnapshot()?.id, "offline");
     stream.broker.presented("offline");
     store.dismiss();
     stream.broker.publish({ ...previewCelebration, id: "new-live" });
-    t.mock.timers.tick(1000);
+    vi.advanceTimersByTime(1000);
     await flush();
     assert.equal(store.getSnapshot()?.id, "new-live");
   } finally {
     stop();
   }
 });
-test("an RPC error recovers its queued event after a fresh baseline", async (t) => {
-  t.mock.timers.enable({ apis: ["setTimeout"] });
+test("an RPC error recovers its queued event after a fresh baseline", async () => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
   const stream = connection();
   const store = createCelebrationStore();
   const stop = startLiveEvents(stream.client, store);
@@ -119,29 +122,29 @@ test("an RPC error recovers its queued event after a fresh baseline", async (t) 
     await flush();
     stream.broker.publish(previewCelebration);
     stream.failNext();
-    t.mock.timers.tick(1000);
+    vi.advanceTimersByTime(1000);
     await flush();
-    t.mock.timers.tick(1000);
+    vi.advanceTimersByTime(1000);
     await flush();
     assert.equal(store.getSnapshot()?.id, "preview");
   } finally {
     stop();
   }
 });
-test("a reconnect recovers a received celebration that was waiting for visibility", async (t) => {
-  t.mock.timers.enable({ apis: ["setTimeout"] });
+test("a reconnect recovers a received celebration that was waiting for visibility", async () => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
   const stream = connection();
   const store = createCelebrationStore();
   const stop = startLiveEvents(stream.client, store);
   try {
     await flush();
     stream.broker.publish(previewCelebration);
-    t.mock.timers.tick(1000);
+    vi.advanceTimersByTime(1000);
     await flush();
     assert.equal(store.getSnapshot()?.id, "preview");
     stream.restore();
     assert.equal(store.getSnapshot(), null);
-    t.mock.timers.tick(1000);
+    vi.advanceTimersByTime(1000);
     await flush();
     assert.equal(store.getSnapshot()?.id, "preview");
   } finally {
@@ -149,8 +152,8 @@ test("a reconnect recovers a received celebration that was waiting for visibilit
   }
 });
 
-test("queued events cannot replay while a reconnect snapshot is delayed", async (t) => {
-  t.mock.timers.enable({ apis: ["setTimeout"] });
+test("queued events cannot replay while a reconnect snapshot is delayed", async () => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
   const stream = connection();
   const store = createCelebrationStore();
   const stop = startLiveEvents(stream.client, store);
@@ -158,11 +161,11 @@ test("queued events cannot replay while a reconnect snapshot is delayed", async 
     await flush();
     stream.broker.publish(previewCelebration);
     stream.disconnect();
-    t.mock.timers.tick(1000);
+    vi.advanceTimersByTime(1000);
     await flush();
     assert.equal(store.getSnapshot(), null);
     stream.restore();
-    t.mock.timers.tick(1000);
+    vi.advanceTimersByTime(1000);
     await flush();
     assert.equal(store.getSnapshot()?.id, "preview");
   } finally {
@@ -170,8 +173,8 @@ test("queued events cannot replay while a reconnect snapshot is delayed", async 
   }
 });
 
-test("an in-flight response from a disconnected subscription is discarded", async (t) => {
-  t.mock.timers.enable({ apis: ["setTimeout"] });
+test("an in-flight response from a disconnected subscription is discarded", async () => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
   const stream = connection();
   const store = createCelebrationStore();
   const stop = startLiveEvents(stream.client, store);
@@ -179,34 +182,34 @@ test("an in-flight response from a disconnected subscription is discarded", asyn
     await flush();
     stream.broker.publish(previewCelebration);
     stream.holdNext();
-    t.mock.timers.tick(1000);
+    vi.advanceTimersByTime(1000);
     await flush();
     stream.disconnect();
     stream.releaseHeld();
     await flush();
     assert.equal(store.getSnapshot(), null);
     stream.restore();
-    t.mock.timers.tick(1000);
+    vi.advanceTimersByTime(1000);
     await flush();
     assert.equal(store.getSnapshot()?.id, "preview");
   } finally {
     stop();
   }
 });
-test("a terminal watcher error reacquires observation before accepting new live events", async (t) => {
-  t.mock.timers.enable({ apis: ["setTimeout"] });
+test("a terminal watcher error reacquires observation before accepting new live events", async () => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
   const stream = connection();
   const store = createCelebrationStore();
   const stop = startLiveEvents(stream.client, store);
   try {
     await flush();
     stream.terminate();
-    t.mock.timers.tick(1000);
+    vi.advanceTimersByTime(1000);
     await flush();
-    t.mock.timers.tick(1000);
+    vi.advanceTimersByTime(1000);
     await flush();
     stream.broker.publish(previewCelebration);
-    t.mock.timers.tick(1000);
+    vi.advanceTimersByTime(1000);
     await flush();
     assert.equal(store.getSnapshot()?.id, "preview");
   } finally {
@@ -214,22 +217,22 @@ test("a terminal watcher error reacquires observation before accepting new live 
   }
 });
 
-test("a failed presentation acknowledgement retries before reconnect can replay it", async (t) => {
-  t.mock.timers.enable({ apis: ["setTimeout"] });
+test("a failed presentation acknowledgement retries before reconnect can replay it", async () => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
   const stream = connection();
   const store = createCelebrationStore();
   const stop = startLiveEvents(stream.client, store);
   try {
     await flush();
     stream.broker.publish(previewCelebration);
-    t.mock.timers.tick(1000);
+    vi.advanceTimersByTime(1000);
     await flush();
     store.presented("preview");
     stream.failNext();
-    t.mock.timers.tick(1000);
+    vi.advanceTimersByTime(1000);
     await flush();
     stream.restore();
-    t.mock.timers.tick(1000);
+    vi.advanceTimersByTime(1000);
     await flush();
     assert.equal(store.getSnapshot(), null);
     assert.deepEqual(stream.broker.poll({ session: "another-window", baseline: true }).events, []);

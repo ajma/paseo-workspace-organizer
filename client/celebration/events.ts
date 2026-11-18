@@ -1,5 +1,5 @@
 import type { PluginClientContext } from "@getpaseo/plugin/client";
-import { pollCelebrations, reportCelebration } from "../shared/celebration";
+import { pollCelebrations, reportCelebration } from "../../shared/celebration/celebration";
 import type { CelebrationStore } from "./store";
 
 /** Send immediately; failed confirmations remain queued for the polling retry. */
@@ -108,7 +108,7 @@ export function startLiveEvents(
   return () => {
     stopped = true;
     generation += 1;
-    clearTimeout(timer);
+    if (timer !== undefined) clearTimeout(timer);
     release();
   };
 }

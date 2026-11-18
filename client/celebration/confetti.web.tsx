@@ -1,6 +1,20 @@
 import { useEffect, useRef, useState } from "react";
-import type { ConfettiOptions } from "../shared/settings";
+import type { ConfettiOptions } from "../../shared/celebration/settings";
 import { createConfetti } from "./confetti-physics";
+
+// The canvas calls used below. The client typechecks without the DOM library, so the browser is reached through these.
+type Canvas2D = {
+  fillStyle: string;
+  setTransform(a: number, b: number, c: number, d: number, e: number, f: number): void;
+  transform(a: number, b: number, c: number, d: number, e: number, f: number): void;
+  clearRect(x: number, y: number, width: number, height: number): void;
+  fillRect(x: number, y: number, width: number, height: number): void;
+  translate(x: number, y: number): void;
+  rotate(angle: number): void;
+  save(): void;
+  restore(): void;
+};
+type CanvasSurface = { width: number; height: number; getContext(kind: "2d"): Canvas2D | null };
 
 /** Browser-only drawing boundary; no React state updates during animation frames. */
 export function Confetti({
@@ -27,16 +41,16 @@ export function Confetti({
   useEffect(() => () => simulation.clear(), [simulation]);
   useEffect(() => {
     if (!running || !canvas.current) return;
-    const surface = canvas.current;
+    const surface = canvas.current as unknown as CanvasSurface;
     const context = surface.getContext("2d");
     if (!context) return;
     simulation.resize(width, height);
-    const ratio = Math.min(window.devicePixelRatio || 1, 2);
+    const ratio = Math.min(Number(Reflect.get(globalThis, "devicePixelRatio")) || 1, 2);
     surface.width = Math.round(width * ratio);
     surface.height = Math.round(height * ratio);
     context.setTransform(ratio, 0, 0, ratio, 0, 0);
     let frame = 0;
-    let previous = performance.now();
+    let previous = (Reflect.get(globalThis, "performance") as { now(): number }).now();
     const draw = (now: number) => {
       simulation.step((now - previous) / 1000);
       previous = now;

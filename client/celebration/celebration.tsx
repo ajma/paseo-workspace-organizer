@@ -8,7 +8,7 @@ import {
   useWindowDimensions,
 } from "react-native";
 import type { PluginHostProps } from "@getpaseo/plugin/client";
-import { confettiOptions, headline, type CelebrationSettings } from "../shared/settings";
+import { confettiOptions, headline, type CelebrationSettings } from "../../shared/celebration/settings";
 import type { CelebrationStore } from "./store";
 import { Confetti } from "./confetti.web";
 import type { CelebrationShortcuts } from "./shortcuts";

@@ -17,7 +17,7 @@ import {
   celebrationSettings,
   headline,
   type CelebrationSettings,
-} from "../shared/settings";
+} from "../../shared/celebration/settings";
 import type { PresentationStore } from "./presentation";
 
 const capitalize = (value: string) => value[0].toUpperCase() + value.slice(1);

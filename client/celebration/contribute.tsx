@@ -1,39 +1,36 @@
 import { useEffect } from "react";
 import { Platform } from "react-native";
 import type { PluginClientContext, PluginSidebarItemProps } from "@getpaseo/plugin/client";
-import { createCelebrationStore } from "./client/store";
-import { createPresentationStore, type PresentationStore } from "./client/presentation";
-import { mountBrowserOverlay } from "./client/web";
-import { startLiveEvents, reportPresented } from "./client/events";
-import { SettingsScreen, useSettingsBridge } from "./client/settings";
-import { OpenWorkspaceScreen } from "./client/workspace";
-import { previewCelebration } from "./shared/celebration";
+import { createCelebrationStore } from "./store";
+import { createPresentationStore, type PresentationStore } from "./presentation";
+import { mountBrowserOverlay } from "./web";
+import { startLiveEvents, reportPresented } from "./events";
+import { SettingsScreen, useSettingsBridge } from "./settings";
+import { previewCelebration } from "../../shared/celebration/celebration";
 
-function ThemeBridge({
-  theme,
-  presentation,
-}: PluginSidebarItemProps & { presentation: PresentationStore }) {
+export const CELEBRATION_SETTINGS_ID = "celebration";
+
+// The overlay lives outside Paseo's tree, so a hidden footer item passes it the current theme and settings.
+function ThemeBridge({ theme, presentation }: PluginSidebarItemProps & { presentation: PresentationStore }) {
   useEffect(() => {
     presentation.update(theme);
   }, [theme, presentation]);
   useSettingsBridge(presentation);
   return null;
 }
-export default function contribute(client: PluginClientContext) {
+
+/**
+ * Celebrates merged pull requests with confetti and a recap over the whole window. Desktop and web only: phones
+ * have no document to draw the overlay on. `openWorkspace` opens a workspace on the installation's host.
+ */
+export function contributeCelebration(client: PluginClientContext, { openWorkspace }: { openWorkspace: (workspaceId: string) => void }) {
   if (Platform.OS !== "web") return () => {};
   const store = createCelebrationStore();
   const presentation = createPresentationStore();
-  const removeOpenWorkspace = client.addScreen({
-    id: "open-workspace",
-    title: "Open workspace",
-    Component: OpenWorkspaceScreen,
-  });
   const unmount = mountBrowserOverlay({
     store,
     presentation,
-    onOpenWorkspace(workspaceId) {
-      client.openScreen({ screenId: "open-workspace", params: { workspaceId } });
-    },
+    onOpenWorkspace: openWorkspace,
     async onArchive(workspaceId) {
       const result = await client.paseo.workspaces.archive(workspaceId);
       if (result.error) throw new Error(result.error);
@@ -56,26 +53,17 @@ export default function contribute(client: PluginClientContext) {
     });
   });
   function preview() {
-    store.show({
-      ...previewCelebration,
-      id: `preview-${Date.now()}-${Math.random()}`,
-    });
+    store.show({ ...previewCelebration, id: `preview-${Date.now()}-${Math.random()}` });
   }
   function Bridge(props: PluginSidebarItemProps) {
     return <ThemeBridge {...props} presentation={presentation} />;
   }
-  const removeTheme = client.addSidebarFooterItem({
-    id: "celebration-theme",
-    title: "Merge celebration",
-    Component: Bridge,
-  });
+  const removeTheme = client.addSidebarFooterItem({ id: "celebration-theme", title: "Merge celebration", Component: Bridge });
   const removeSettings = client.addSettingsScreen({
-    id: "settings",
+    id: CELEBRATION_SETTINGS_ID,
     title: "Merge celebration",
     icon: "PartyPopper",
-    Component: (props) => (
-      <SettingsScreen {...props} presentation={presentation} onPreview={preview} />
-    ),
+    Component: (props) => <SettingsScreen {...props} presentation={presentation} onPreview={preview} />,
   });
   const removePreview = client.addCommandCenterItem({
     id: "preview-celebration",
@@ -92,11 +80,10 @@ export default function contribute(client: PluginClientContext) {
     keywords: ["confetti", "celebrate", "merged", "preferences"],
     context: "global",
     onSelect({ openSettings }) {
-      openSettings("settings");
+      openSettings(CELEBRATION_SETTINGS_ID);
     },
   });
   return () => {
-    removeOpenWorkspace();
     removeOpenSettings();
     removePreview();
     removeSettings();

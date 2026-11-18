@@ -1,13 +1,14 @@
-import { test } from "node:test";
+// @vitest-environment node
+import { test } from "vitest";
 import assert from "node:assert/strict";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createBroker } from "../server/broker";
-import { command, resolveCelebration, summarize, githubRepository } from "../server/github";
+import { createBroker } from "../../server/celebration/broker";
+import { command, resolveCelebration, summarize, githubRepository } from "../../server/celebration/github";
 import type { PluginClientContext } from "@getpaseo/plugin/client";
-import { createCelebrationStore } from "../client/store";
-import { previewCelebration } from "../shared/celebration";
+import { createCelebrationStore } from "../../client/celebration/store";
+import { previewCelebration } from "../../shared/celebration/celebration";
 
 const sha = "a".repeat(40);
 const workspace = {
@@ -220,7 +221,9 @@ test("an inaccessible linked issue cannot suppress a verified merge celebration"
   ]);
 });
 test("settings default to the original celebration and build its headline", async () => {
-  const { defaultSettings, headline, settingsSchema } = await import("../shared/settings");
+  const { celebrationSettings, defaultSettings, headline, settingsSchema } = await import("../../shared/celebration/settings");
+  // Nothing is published yet, so it starts at version 1 with no migrations.
+  assert.equal(celebrationSettings.version, 1);
   assert.equal(headline(defaultSettings), "Work shipped! 🎉");
   assert.equal(headline({ verb: "landed", emoji: "none" }), "Work landed!");
   assert.deepEqual(settingsSchema.parse({}), defaultSettings);

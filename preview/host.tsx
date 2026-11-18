@@ -54,7 +54,7 @@ export function useNewWorkspace() {
     setIsolation: async () => {}, setBaseRef: async () => {}, setBranch: async () => {} };
 }
 export function resetHost() { workspaces = sampleWorkspaces(); agents = []; archiveCalls.length = 0; archiveError = null;
-  newWorkspaceMetadata = {}; metadataCalls.length = 0; documents = { organization: { revision: "1", values: sampleOrganization() }, preferences: { revision: "1", values: { collapsed: [] } }, cards: { revision: "1", values: {} } }; for (const key of Object.keys(saveErrors)) delete saveErrors[key]; emit(); }
+  newWorkspaceMetadata = {}; metadataCalls.length = 0; documents = { organization: { revision: "1", values: sampleOrganization() }, preferences: { revision: "1", values: { collapsed: [] } }, cards: { revision: "1", values: {} }, celebration: { revision: "1", values: {} } }; for (const key of Object.keys(saveErrors)) delete saveErrors[key]; emit(); }
 resetHost();
 export function getOrganization() { return documents.organization.values; }
 export function getDocument(id: string) { return documents[id]?.values; }

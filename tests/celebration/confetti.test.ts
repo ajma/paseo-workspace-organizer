@@ -1,6 +1,7 @@
-import { test } from "node:test";
+// @vitest-environment node
+import { test } from "vitest";
 import assert from "node:assert/strict";
-import { createConfetti } from "../client/confetti-physics";
+import { createConfetti } from "../../client/celebration/confetti-physics";
 
 function random() {
   let seed = 12345;

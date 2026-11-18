@@ -1,7 +1,7 @@
 {
   "id": "paseo-workspace-organizer",
   "name": "Workspace organizer",
-  "description": "A workspace sidebar with nested groups, rich workspace rows, filters, saved searches and GitHub status.",
+  "description": "A workspace sidebar with nested groups, rich workspace rows, filters, saved searches and GitHub status, plus confetti when a PR merges.",
   "requirements": {
     "paseo": ">=0.16.0 <0.17.0"
   },

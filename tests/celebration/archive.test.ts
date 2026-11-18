@@ -1,11 +1,12 @@
-import { test } from "node:test";
+// @vitest-environment node
+import { test } from "vitest";
 import assert from "node:assert/strict";
 import { mkdtemp, mkdir, writeFile, chmod, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { PluginServerContext } from "@getpaseo/plugin/server";
-import { contributeServer } from "../server/contribute";
-import { command } from "../server/github";
+import { contributeServer } from "../../server/celebration/contribute";
+import { command } from "../../server/celebration/github";
 
 test("workspace PR updates celebrate merges without archiving and retain them offline", async () => {
   const root = await mkdtemp(join(tmpdir(), "celebration-merge-"));

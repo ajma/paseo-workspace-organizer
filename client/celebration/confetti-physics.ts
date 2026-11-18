@@ -1,4 +1,4 @@
-import type { ConfettiOptions } from "../shared/settings";
+import type { ConfettiOptions } from "../../shared/celebration/settings";
 
 const STEP = 1 / 120;
 const MAX_PARTICLES = 240;

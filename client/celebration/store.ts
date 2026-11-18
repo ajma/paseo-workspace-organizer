@@ -1,4 +1,4 @@
-import { MAX_PENDING, RETENTION_MS, type Celebration } from "../shared/celebration";
+import { MAX_PENDING, RETENTION_MS, type Celebration } from "../../shared/celebration/celebration";
 export function createCelebrationStore(now = Date.now) {
   let current: Celebration | null = null;
   let motionGeneration = 0;

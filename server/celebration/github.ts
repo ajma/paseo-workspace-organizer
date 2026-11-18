@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { z } from "zod";
 import type { PluginHookContext } from "@getpaseo/plugin/server";
-import type { Celebration } from "../shared/celebration";
+import type { Celebration } from "../../shared/celebration/celebration";
 const execute = promisify(execFile);
 export async function command(file: string, args: string[], signal?: AbortSignal) {
   const { stdout } = await execute(file, args, {

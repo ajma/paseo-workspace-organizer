@@ -11,11 +11,14 @@ import { createLabelColorStore } from "./client/label-colors";
 import { createRemoteWorkspaces } from "./client/remote-workspaces";
 import { disposeProviderCatalogs } from "./client/agents";
 import { CardSettingsScreen } from "./client/card-settings";
+import { contributeCelebration } from "./client/celebration/contribute";
 
-function JumpToWorkspace({ navigation, params, theme }: PluginScreenProps) {
+// Opens a workspace for Command Center results and merge celebrations. Without a host it opens on this screen's host.
+function JumpToWorkspace({ navigation, params, theme, host }: PluginScreenProps) {
+  const serverId = params.serverId ?? host.id;
   useEffect(() => {
-    if (params.workspaceId) navigation?.openWorkspace({ workspaceId: params.workspaceId, serverId: params.serverId });
-  }, [navigation, params.workspaceId, params.serverId]);
+    if (params.workspaceId) navigation?.openWorkspace({ workspaceId: params.workspaceId, serverId });
+  }, [navigation, params.workspaceId, serverId]);
   return <View style={{ padding: 16 }}><Text style={{ color: theme.colors.foregroundMuted }}>
     {navigation ? "Opening workspace…" : "Update the Paseo app to open this workspace."}
   </Text></View>;
@@ -53,5 +56,7 @@ export default function contribute(client: PluginClientContext) {
       openCardSettings={() => client.openSettings("cards")}
       openInBrowser={(url, workspace) => client.openScreen({ screenId: "open-link", params: { url, workspaceId: workspace.id, serverId: workspace.hostId } })} />,
   });
-  return () => { index.dispose(); icons.dispose(); labelColors.dispose(); remoteWorkspaces.dispose(); disposeProviderCatalogs(); void removeSidebar(); void removeScreen(); void removeLinkScreen(); void removeSettings(); void removeNewWorkspaceItem(); };
+  const removeCelebration = contributeCelebration(client, {
+    openWorkspace: (workspaceId) => client.openScreen({ screenId: "jump", params: { workspaceId } }) });
+  return () => { removeCelebration(); index.dispose(); icons.dispose(); labelColors.dispose(); remoteWorkspaces.dispose(); disposeProviderCatalogs(); void removeSidebar(); void removeScreen(); void removeLinkScreen(); void removeSettings(); void removeNewWorkspaceItem(); };
 }

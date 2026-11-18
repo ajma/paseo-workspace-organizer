@@ -6,7 +6,13 @@ import { Pressable, ScrollView, Text, useWindowDimensions, View } from "react-na
 import { OrganizerSidebar } from "../client/sidebar";
 import { CardSettingsScreen } from "../client/card-settings";
 import { agent, makeIndex, setAgents, setWorkspaces, theme, workspace } from "./host";
-import { loadShowcase } from "./showcase";
+import { loadShowcase, showcaseCelebration } from "./showcase";
+import { createCelebrationStore } from "../client/celebration/store";
+import { createPresentationStore } from "../client/celebration/presentation";
+import { mountBrowserOverlay } from "../client/celebration/web";
+import { SettingsScreen as CelebrationSettingsScreen } from "../client/celebration/settings";
+import { previewCelebration } from "../shared/celebration/celebration";
+import { defaultSettings as celebrationDefaults } from "../shared/celebration/settings";
 
 Reflect.set(globalThis, "__ORGANIZER_PREVIEW_ICONS__", true);
 const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
@@ -34,6 +40,16 @@ if (!showcase) {
 }
 
 const index = makeIndex(showcase?.index);
+// The merge celebration overlay, as the plugin mounts it in Paseo; its settings screen feeds it settings.
+const celebrations = createCelebrationStore();
+const presentation = createPresentationStore();
+presentation.update(theme);
+mountBrowserOverlay({ store: celebrations, presentation, onOpenWorkspace() {}, async onArchive() {}, onPresented() {} });
+const celebrate = () => celebrations.show({ ...previewCelebration, id: `preview-${Date.now()}` });
+if (showcase && new URLSearchParams(location.search).has("celebrate")) {
+  presentation.updateSettings(celebrationDefaults);
+  setTimeout(() => celebrations.show(showcaseCelebration), 300);
+}
 function Preview() {
   const [compact, setCompact] = useState(false);
   const [active, setActive] = useState<any>(showcase?.active ?? null);
@@ -52,6 +68,8 @@ function Preview() {
       <Text style={{ color: theme.colors.foregroundMuted }}>Selected workspace: {active?.id ?? "none"}</Text>
       <Pressable accessibilityRole="button" onPress={() => setCompact(!compact)}><Text style={{ color: theme.colors.accent }}>{compact ? "Use desktop width" : "Use compact width"}</Text></Pressable>
       <CardSettingsScreen theme={theme} layout={{ compact: false, platform: "web" }} />
+      <Text style={{ color: theme.colors.foreground, fontSize: 18, marginTop: 10 }}>Merge celebration</Text>
+      <CelebrationSettingsScreen theme={theme} layout={{ compact: false, platform: "web" }} presentation={presentation} onPreview={celebrate} />
     </ScrollView> : null}
   </View>;
 }

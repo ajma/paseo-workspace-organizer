@@ -100,3 +100,14 @@ export function loadShowcase() {
     },
   };
 }
+
+// The merge celebration for the webhooks workspace, whose PR has merged (open the preview with ?showcase&celebrate).
+export const showcaseCelebration = {
+  id: "showcase-webhooks",
+  workspaceName: "Retry failed webhooks with backoff",
+  workspaceId: "webhooks",
+  title: "Retry failed webhooks with exponential backoff",
+  url: pr("billing-api", 305),
+  issues: [{ number: 298, title: "Webhook deliveries are lost when a merchant's endpoint is briefly down",
+    summary: "Failed deliveries now retry five times over an hour, with jitter, before landing in the dead-letter queue for replay." }],
+};

@@ -1,4 +1,4 @@
-import { MAX_PENDING, RETENTION_MS, type Celebration } from "../shared/celebration";
+import { MAX_PENDING, RETENTION_MS, type Celebration } from "../../shared/celebration/celebration";
 const LEASE_MS = 4_000;
 interface Session {
   lastPoll: number;

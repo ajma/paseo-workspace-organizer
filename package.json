@@ -1,7 +1,7 @@
 {
   "name": "paseo-workspace-organizer",
   "version": "0.1.0",
-  "description": "A workspace sidebar for Paseo with nested groups, rich workspace rows, filters, saved searches and GitHub status.",
+  "description": "A workspace sidebar for Paseo with nested groups, rich workspace rows, filters, saved searches and GitHub status, plus confetti when a PR merges.",
   "type": "module",
   "files": [
     "paseo-plugin.json",
@@ -56,6 +56,7 @@
     "sidebar",
     "workspaces",
     "agents",
-    "github"
+    "github",
+    "confetti"
   ]
 }

@@ -4,8 +4,8 @@ import {
   pollCelebrations,
   previewCelebration,
   reportCelebration,
-} from "../shared/celebration";
-import { celebrationSettings } from "../shared/settings";
+} from "../../shared/celebration/celebration";
+import { celebrationSettings } from "../../shared/celebration/settings";
 import { createBroker } from "./broker";
 import {
   captureDirectory,

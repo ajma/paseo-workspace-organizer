@@ -1,6 +1,6 @@
 import type { PluginTheme } from "@getpaseo/plugin";
 import { Appearance } from "react-native";
-import { defaultSettings, type CelebrationSettings } from "../shared/settings";
+import { defaultSettings, type CelebrationSettings } from "../../shared/celebration/settings";
 
 export function createPresentationStore() {
   const dark = Appearance.getColorScheme() === "dark";

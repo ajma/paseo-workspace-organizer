@@ -56,6 +56,21 @@ export function useToast() {
 export const copiedTexts: string[] = [];
 export async function copyText(text: string) { copiedTexts.push(text); }
 
+// A settings row whose value is picked from a short list, drawn as a row of choices.
+export function SettingsSelect<Value extends string>({ label, hint, value, options, onValueChange, disabled }: {
+  label: string; hint?: string; value: Value; options: readonly { value: Value; label: string }[]; onValueChange(value: Value): void; disabled?: boolean;
+}) {
+  return <RowFrame label={label} hint={hint}>
+    <View accessibilityRole="radiogroup" accessibilityLabel={label} style={{ flexDirection: "row", flexWrap: "wrap", gap: 4, justifyContent: "flex-end", maxWidth: 320 }}>
+      {options.map((option) => <Pressable key={option.value} accessibilityRole="radio" aria-checked={option.value === value}
+        accessibilityLabel={`${label} ${option.label}`} disabled={disabled} onPress={() => onValueChange(option.value)}
+        style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, backgroundColor: option.value === value ? "#2d323b" : "transparent" }}>
+        <Text style={{ color: option.value === value ? fg : muted, fontSize: 13 }}>{option.label}</Text>
+      </Pressable>)}
+    </View>
+  </RowFrame>;
+}
+
 // Stands in for Paseo's composer controls: the current value as a button that opens the options.
 export function Select<Value extends string>({ title, value, options, onValueChange, disabled }: {
   title: string; value: Value; options: readonly { value: Value; label: string }[]; onValueChange(event: { value: Value }): void | Promise<void>;
