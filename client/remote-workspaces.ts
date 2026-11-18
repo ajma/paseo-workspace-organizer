@@ -1,8 +1,10 @@
 // Follows the workspace list of every other connected host, so cards there show Paseo's detected PR and git status
 // even when this plugin is installed only on one host.
-import type { PaseoWorkspace } from "@getpaseo/client";
 import { getPaseoClient } from "@getpaseo/plugin/client";
 import { useEffect, useSyncExternalStore } from "react";
+
+// A workspace as a host's Paseo client lists it (its own type lives in a package plugins can't import).
+type PaseoWorkspace = Awaited<ReturnType<ReturnType<typeof getPaseoClient>["workspaces"]["list"]>>["entries"][number];
 
 export function createRemoteWorkspaces(connect: (hostId: string) => ReturnType<typeof getPaseoClient> = getPaseoClient) {
   const hosts = new Map<string, { workspaces: Map<string, PaseoWorkspace>; stop: () => void }>();

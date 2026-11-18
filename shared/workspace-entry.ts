@@ -1,13 +1,22 @@
 // Turns a Paseo workspace into the PR links, git status and PR status cards show. Used by the daemon side for its own
 // host and by the app for every other connected host.
-import type { PaseoWorkspace } from "@getpaseo/client";
 import { parseGithubLink } from "./organization";
 import type { IndexEntry } from "./workspace-index";
 import type { GithubStatus } from "./github-status";
 import { requestedGroup } from "./new-workspace-group";
 
+// The parts of a Paseo workspace read here. The daemon and the app each pass their own workspace type, which has these.
+type WorkspaceSnapshot = {
+  id: string; name: string; title?: string | null; labels?: string[] | null;
+  metadata?: Readonly<Record<string, unknown>> | null;
+  gitRuntime?: { currentBranch?: string | null; isDirty?: boolean | null; aheadOfOrigin?: number | null; behindOfOrigin?: number | null;
+    aheadBehind?: { ahead?: number | null; behind?: number | null } | null } | null;
+  githubRuntime?: { refreshedAt?: string | null; pullRequest?: { url?: string | null; state?: string | null; isMerged?: boolean | null;
+    isDraft?: boolean | null; checksStatus?: GithubStatus["checks"]; reviewDecision?: GithubStatus["review"] } | null } | null;
+};
+
 // Paseo's detected PR wins; `fallbackUrl` is the plugin's own lookup when Paseo has none.
-export function workspaceEntry(workspace: PaseoWorkspace, fallbackUrl?: string | null): IndexEntry {
+export function workspaceEntry(workspace: WorkspaceSnapshot, fallbackUrl?: string | null): IndexEntry {
   const links: IndexEntry["links"] = [];
   const git = workspace.gitRuntime;
   const url = workspace.githubRuntime?.pullRequest?.url ?? fallbackUrl;
@@ -20,7 +29,7 @@ export function workspaceEntry(workspace: PaseoWorkspace, fallbackUrl?: string |
 }
 
 // The status Paseo already knows for its detected PR.
-export function detectedStatus(workspace: PaseoWorkspace, now = Date.now()): GithubStatus | null {
+export function detectedStatus(workspace: WorkspaceSnapshot, now = Date.now()): GithubStatus | null {
   const pr = workspace.githubRuntime?.pullRequest;
   if (!pr?.state) return null;
   return {

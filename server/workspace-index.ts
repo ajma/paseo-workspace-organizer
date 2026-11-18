@@ -1,5 +1,4 @@
-import type { PaseoWorkspace } from "@getpaseo/client";
-import type { PluginServerContext } from "@getpaseo/plugin/server";
+import type { PluginHookContext, PluginServerContext } from "@getpaseo/plugin/server";
 import { mergeLinks, organization, workspaceKey } from "../shared/organization";
 import { detectedStatus, workspaceEntry } from "../shared/workspace-entry";
 import { workspaceIndex, type IndexEntry } from "../shared/workspace-index";
@@ -8,6 +7,8 @@ import { createStatusCache, readGithubStatus, type StatusReader } from "./github
 import { createPrLookup, findPullRequest, type PrFinder } from "./pr-lookup";
 
 type PrLookup = ReturnType<typeof createPrLookup>;
+// A workspace as the daemon's Paseo API lists it (its own type lives in a package plugins can't import).
+type PaseoWorkspace = Awaited<ReturnType<PluginHookContext["paseo"]["workspaces"]["list"]>>["entries"][number];
 
 function entry(workspace: PaseoWorkspace, prs?: PrLookup): IndexEntry {
   return workspaceEntry(workspace, workspace.githubRuntime?.pullRequest?.url ? null : prs?.get(workspace.workspaceDirectory, workspace.gitRuntime?.currentBranch));
