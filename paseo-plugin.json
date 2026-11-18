@@ -5,5 +5,13 @@
   "requirements": {
     "paseo": ">=0.16.0 <0.17.0"
   },
-  "icon": "assets/logo.png"
+  "icon": "assets/logo.png",
+  "media": [
+    "assets/screenshots/sidebar.png",
+    "assets/screenshots/details.png",
+    "assets/screenshots/filters.png",
+    "assets/screenshots/group-by-pr.png",
+    "assets/screenshots/archive.png",
+    "assets/screenshots/celebration.png"
+  ]
 }
