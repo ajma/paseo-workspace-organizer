@@ -52,7 +52,7 @@ export default function contribute(client: PluginClientContext) {
   const removeScreen = client.addScreen({ id: "jump", title: "Open workspace", Component: JumpToWorkspace });
   const removeLinkScreen = client.addScreen({ id: "open-link", title: "Open link", Component: OpenLinkInBrowser });
   // With the plugin on several hosts, Paseo shows one copy's sidebar whatever its host, and each copy has its own host's
-  // groups; so the copy on this computer's host offers it, and another host's only when that copy isn't running.
+  // groups; so only the copy on this computer's host offers it, and other hosts' groups are never shown.
   const removeSidebar = placeSidebar({ hostId: () => index.getSnapshot()?.hostId ?? null, subscribe: index.subscribe,
     localHosts: readLocalHostIds(), add: () => client.addSidebarView({
     id: "organized-workspaces", title: "Workspace organizer",

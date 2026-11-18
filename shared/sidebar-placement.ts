@@ -23,12 +23,9 @@ export function localHostIds(registry: string | null): Set<string> {
   return ids;
 }
 
-// The local host's copy shows the sidebar. Without a local host, every copy offers it, as before. Any other copy, or
-// one not yet sure of its host, steps in only when no local copy is running, after a short wait for one to appear.
-export function showsSidebar({ hostId, localHosts, localCopyRunning, waited }: {
-  hostId: string | null; localHosts: ReadonlySet<string>; localCopyRunning: boolean; waited: boolean;
-}): boolean {
+// On a computer with a local host, only that host's copy shows the sidebar, so other hosts' groups never appear; a
+// copy waits until it knows its host. Without one (a phone, or the web away from the daemon), any copy offers it.
+export function showsSidebar({ hostId, localHosts }: { hostId: string | null; localHosts: ReadonlySet<string> }): boolean {
   if (localHosts.size === 0) return true;
-  if (hostId !== null && localHosts.has(hostId)) return true;
-  return !localCopyRunning && waited;
+  return hostId !== null && localHosts.has(hostId);
 }
