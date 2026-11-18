@@ -1,0 +1,24 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Typecheck and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      # Paseo supplies the host libraries at runtime; they are dev dependencies here, so no install scripts are needed.
+      - run: npm ci --ignore-scripts
+      - run: npm run typecheck
+      - run: npm test
