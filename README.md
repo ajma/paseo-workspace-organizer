@@ -101,7 +101,7 @@ See the [**user guide**](docs/guide.md) for exactly how each feature behaves.
 1. **Check your version.** Run the Paseo app and daemon at **0.16** (0.16 betas included).
 2. **Install the plugin:**
    ```sh
-   paseo plugin install npm:paseo-workspace-organizer
+   paseo plugin install npm:@ajma/paseo-workspace-organizer
    ```
    Or, from a clone of this repository: `paseo plugin install /path/to/paseo-workspace-organizer`.
 3. **Switch the sidebar.** In Paseo, choose **Settings → Sidebar → Sidebar view → Workspace organizer**.
