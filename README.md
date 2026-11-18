@@ -56,7 +56,7 @@ When you run a dozen agents at once, a flat list of workspaces stops working. **
 
 <img src="assets/screenshots/archive.png" width="360" alt="Archiving asks first with Cancel and a red Archive button">
 
-- **Back and Forward** through the workspaces you've opened, like a browser: buttons, **⌘← / ⌘→**, or your mouse's side buttons.
+- **Back and Forward** through the workspaces you've opened, like a browser: buttons, **⌘← / ⌘→**, your mouse's side buttons, or **⌘[ / ⌘]** once you free them in Paseo's shortcut settings.
 - **Safe archiving.** Confirm with a red Archive button, or press **⌘⇧⌫** twice, and the row slides away.
 - **Links open where you work.** PRs and issues open as a Paseo browser tab in the workspace, or in your default browser if you prefer (a setting).
 - **Quick actions** in every row's ⋯ menu: edit notes, tags and links, copy path or branch, pin.
@@ -87,7 +87,7 @@ When you run a dozen agents at once, a flat list of workspaces stops working. **
 | **Views** | Simple / Full / Custom views · per-field toggles · labels shown · title lines · simple rows on phones · live sample in settings |
 | **Details** | Hover panel with every field in full · clickable PR and issue links · long-press on phones |
 | **Search** | Text search · ⌘K Command Center results by PR or issue number · filters (status, tags, host, project, PR) with counts · two-level and emoji tags · saved searches |
-| **Navigation** | Back / Forward history with ⌘← / ⌘→ and mouse side buttons · open-workspace highlight · links open in a Paseo browser tab or your default browser (setting) |
+| **Navigation** | Back / Forward history with ⌘← / ⌘→, ⌘[ / ⌘] and mouse side buttons · open-workspace highlight · links open in a Paseo browser tab or your default browser (setting) |
 | **Actions** | Archive with confirmation and slide-away animation · ⌘⇧⌫ archive shortcut · edit details · copy path · copy branch · pin / unpin |
 | **Toolbar** | Search · Filters · Saved · View · Group · Sort · reorderable chips · ⋯ menu with button labels toggle and plugin settings · hover hints · two-line layout in narrow sidebars |
 | **Celebrations** | Confetti and a recap when a PR merges · open or archive the workspace from the recap · ⌥O / ⌥A shortcuts · verb, emoji, issue recap and confetti settings · preview from ⌘K · desktop and web |
@@ -124,6 +124,7 @@ Then press **Group → New group** and start dragging workspaces in. Row fields,
 - **Drag and drop** works in the desktop app and on the web. On iOS and Android, use ⋯ → Edit details to move workspaces between groups.
 - **Context usage and plan progress** aren't available to plugins, so rows don't show them.
 - **GitHub Enterprise** links aren't supported yet.
+- **Mouse side buttons** don't reach Paseo with some mice on macOS. Clear **Previous workspace** and **Next workspace** in Paseo's **Settings → Shortcuts**, then set the buttons to send ⌘[ and ⌘] in the mouse's software.
 - **Merge celebrations** show on the desktop app and the web, not on phones. To archive from a celebration, turn off Paseo's automatic archiving after merge.
 - **Command Center results and automatic PR lookup** follow the host where the plugin is installed. Install it on each host where you want them.
 

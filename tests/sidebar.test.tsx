@@ -738,3 +738,38 @@ it("goes back and forward with ⌘← / ⌘→ like Chrome (not while typing) an
   textbox.remove();
   platform.mockRestore();
 });
+
+it("goes back and forward with ⌘[ / ⌘] even while typing, once Paseo's own binding for them is cleared", () => {
+  const openWorkspace = vi.fn();
+  const ref = (id: string) => ({ kind: "workspace" as const, hostId: "local", id, key: workspaceKey("local", id) });
+  const sidebar = (id: string) => <OrganizerSidebar theme={theme} layout={{ compact: true, platform: "web" }} active={{ workspace: ref(id), agent: null } as any}
+    navigation={{ openWorkspace, openAgent: vi.fn(), openTerminal: vi.fn(), openProject: vi.fn() }} dismiss={vi.fn()} index={makeIndex()} />;
+  const platform = vi.spyOn(navigator, "platform", "get").mockReturnValue("MacIntel");
+  const view = render(sidebar("search"));
+  view.rerender(sidebar("mobile"));
+  const textbox = document.body.appendChild(document.createElement("textarea"));
+  // While Paseo still binds ⌘[ to Previous workspace, it handles the key first and the sidebar leaves it alone.
+  const handled = createEvent.keyDown(textbox, { key: "[", code: "BracketLeft", metaKey: true });
+  handled.preventDefault();
+  fireEvent(textbox, handled);
+  expect(openWorkspace).not.toHaveBeenCalled();
+  // Cleared in Paseo's shortcut settings, ⌘[ goes back, even from a text field (mouse buttons can send it).
+  fireEvent.keyDown(textbox, { key: "[", code: "BracketLeft", metaKey: true });
+  expect(openWorkspace).toHaveBeenLastCalledWith(expect.objectContaining({ id: "search" }));
+  view.rerender(sidebar("search"));
+  // ⌘⇧] is Paseo's next tab, not forward.
+  fireEvent.keyDown(document.body, { key: "}", code: "BracketRight", metaKey: true, shiftKey: true });
+  expect(openWorkspace).toHaveBeenCalledTimes(1);
+  fireEvent.keyDown(document.body, { key: "]", code: "BracketRight", metaKey: true });
+  expect(openWorkspace).toHaveBeenLastCalledWith(expect.objectContaining({ id: "mobile" }));
+  expect(openWorkspace).toHaveBeenCalledTimes(2);
+  // In a code editor, ⌘[ outdents.
+  const editor = document.body.appendChild(document.createElement("div"));
+  editor.className = "cm-editor";
+  const line = editor.appendChild(document.createElement("div"));
+  fireEvent.keyDown(line, { key: "[", code: "BracketLeft", metaKey: true });
+  expect(openWorkspace).toHaveBeenCalledTimes(2);
+  editor.remove();
+  textbox.remove();
+  platform.mockRestore();
+});

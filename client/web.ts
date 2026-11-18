@@ -35,8 +35,8 @@ export function hostBadge(chosen: HostBadge | null | undefined, isLocal: boolean
   return chosen ?? (isLocal ? "hidden" : "name");
 }
 
-type KeyEvent = { key: string; metaKey: boolean; ctrlKey: boolean; shiftKey: boolean; altKey: boolean; target?: unknown; button?: number;
-  preventDefault(): void };
+type KeyEvent = { key: string; code?: string; metaKey: boolean; ctrlKey: boolean; shiftKey: boolean; altKey: boolean; target?: unknown;
+  button?: number; defaultPrevented?: boolean; preventDefault(): void };
 type EventTarget = { addEventListener(type: string, listener: (event: KeyEvent) => void, capture?: boolean): void;
   removeEventListener(type: string, listener: (event: KeyEvent) => void, capture?: boolean): void };
 
@@ -72,6 +72,17 @@ export function onHistoryInput(handler: (direction: -1 | 1) => void): () => void
   if (!target) return () => {};
   const mac = isMacPlatform();
   const onKey = (event: KeyEvent) => {
+    // ⌘[ / ⌘] are Chrome's other back and forward. Paseo binds them to Previous and Next workspace and handles them
+    // first; once cleared in its shortcut settings they reach here. They work while typing, so mouse buttons mapped to
+    // them always do, but a code editor keeps them for outdent and indent.
+    if (mac && (event.code === "BracketLeft" || event.code === "BracketRight") && event.metaKey && !event.ctrlKey && !event.altKey
+      && !event.shiftKey) {
+      const element = event.target as { closest?: (selector: string) => unknown } | null;
+      if (event.defaultPrevented || element?.closest?.(".cm-editor")) return;
+      event.preventDefault();
+      handler(event.code === "BracketLeft" ? -1 : 1);
+      return;
+    }
     if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
     if (event.shiftKey || (mac ? !event.metaKey || event.ctrlKey || event.altKey : !event.altKey || event.ctrlKey || event.metaKey)) return;
     const element = event.target as { tagName?: string; isContentEditable?: boolean } | null;
