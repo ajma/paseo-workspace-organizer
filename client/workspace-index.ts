@@ -3,6 +3,9 @@ import { useSyncExternalStore } from "react";
 import { emptyDetails, mergeLinks, searchTerms, workspaceKey } from "../shared/organization";
 import { workspaceIndex, type IndexEvent } from "../shared/workspace-index";
 
+const RETRY_DELAYS_MS = [1000, 2000, 4000, 8000, 15000, 30000];
+const RETRIES_BEFORE_ERROR = 3;
+
 export function createWorkspaceIndex(client: PluginClientContext) {
   let snapshot: IndexEvent | null = null;
   let error: string | null = null;
@@ -10,7 +13,12 @@ export function createWorkspaceIndex(client: PluginClientContext) {
   const commands = new Map<string, { signature: string; remove: () => void | Promise<void> }>();
   const notify = () => listeners.forEach((listener) => listener());
   const clear = () => { for (const item of commands.values()) void item.remove(); commands.clear(); };
-  const subscription = client.subscribe(workspaceIndex, {}, (event) => {
+  // A daemon or plugin restart closes the connection, and it usually comes back within seconds, so reconnect quietly
+  // with growing waits and only name the failure once several tries in a row have failed.
+  let subscription: (() => void) | null = null, timer: ReturnType<typeof setTimeout> | undefined;
+  let failures = 0, disposed = false;
+  const onEvent = (event: IndexEvent) => {
+    failures = 0;
     snapshot = event;
     error = event.error;
     const current = new Set<string>();
@@ -33,16 +41,30 @@ export function createWorkspaceIndex(client: PluginClientContext) {
     }
     for (const [id, item] of commands) if (!current.has(id)) { void item.remove(); commands.delete(id); }
     notify();
-  }, { onClosed: ({ error: failure }) => {
-    error = failure?.message ?? "Workspace search connection closed. Reload the plugin to reconnect.";
-    clear(); notify();
-  } });
-  void subscription.ready.catch((failure: unknown) => { error = failure instanceof Error ? failure.message : String(failure); notify(); });
+  };
+  function connect() {
+    if (disposed) return;
+    let ended = false;
+    const end = (failure: unknown) => {
+      if (ended || disposed) return;
+      ended = true; subscription = null; failures++;
+      if (failures >= RETRIES_BEFORE_ERROR) {
+        const message = failure instanceof Error ? failure.message : failure ? String(failure) : "Workspace index connection closed";
+        error = `${message.replace(/\.$/, "")}. Retrying…`;
+        notify();
+      }
+      timer = setTimeout(connect, RETRY_DELAYS_MS[Math.min(failures, RETRY_DELAYS_MS.length) - 1]);
+    };
+    const handle = client.subscribe(workspaceIndex, {}, onEvent, { onClosed: ({ error: failure }) => end(failure) });
+    subscription = handle;
+    void handle.ready.catch(end);
+  }
+  connect();
   return {
     subscribe: (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener); }; },
     getSnapshot: () => snapshot,
     getError: () => error,
-    dispose: () => { subscription(); clear(); listeners.clear(); },
+    dispose: () => { disposed = true; if (timer !== undefined) clearTimeout(timer); subscription?.(); clear(); listeners.clear(); },
   };
 }
 export type WorkspaceIndex = ReturnType<typeof createWorkspaceIndex>;

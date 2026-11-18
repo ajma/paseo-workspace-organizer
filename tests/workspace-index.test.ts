@@ -25,3 +25,40 @@ it("keeps Cmd+K search current even with no sidebar mounted, removes deleted ref
   receive({ ...event, entries: [] }); expect(removers[1]).toHaveBeenCalledOnce();
   index.dispose(); expect(release).toHaveBeenCalledOnce();
 });
+
+it("reconnects after the plugin or daemon restarts, and names the failure only if reconnecting keeps failing", async () => {
+  vi.useFakeTimers();
+  type Handle = (() => void) & { ready: Promise<void>; release: () => Promise<void> };
+  const connections: { receive: (event: IndexEvent) => void; close: (message: string) => void; handle: Handle }[] = [];
+  const client = { addCommandCenterItem: vi.fn(() => vi.fn()), subscribe: vi.fn((_contract, _input, receive, options) => {
+    const handle = Object.assign(vi.fn(), { ready: Promise.resolve(), release: vi.fn(async () => {}) }) as unknown as Handle;
+    connections.push({ receive, close: (message) => options.onClosed({ error: new Error(message) }), handle });
+    return handle;
+  }) } as unknown as PluginClientContext;
+  const index = createWorkspaceIndex(client);
+  const event: IndexEvent = { hostId: "host", entries: [{ id: "w", name: "Reconnect", branch: null, labels: [], links: [] }], organization: null, error: null, github: {} };
+  connections[0].receive(event);
+  // A restart closes the connection; it comes straight back, so no error shows and the data stays.
+  connections[0].close("Plugin stopped: paseo-workspace-organizer");
+  expect(index.getError()).toBeNull();
+  expect(index.getSnapshot()).toEqual(event);
+  await vi.advanceTimersByTimeAsync(1000);
+  expect(client.subscribe).toHaveBeenCalledTimes(2);
+  connections[1].receive({ ...event, entries: [] });
+  expect(index.getSnapshot()?.entries).toEqual([]);
+  // When reconnecting keeps failing, the sidebar says why, and keeps trying.
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    connections.at(-1)!.close("Plugin stopped: paseo-workspace-organizer");
+    await vi.advanceTimersByTimeAsync(30_000);
+  }
+  expect(index.getError()).toMatch(/^Plugin stopped: paseo-workspace-organizer\. Retrying/);
+  connections.at(-1)!.receive(event);
+  expect(index.getError()).toBeNull();
+  // Disposed, it stops reconnecting.
+  const attempts = connections.length;
+  connections.at(-1)!.close("Plugin stopped: paseo-workspace-organizer");
+  index.dispose();
+  await vi.advanceTimersByTimeAsync(60_000);
+  expect(connections.length).toBe(attempts);
+  vi.useRealTimers();
+});
