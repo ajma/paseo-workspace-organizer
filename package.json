@@ -1,0 +1,61 @@
+{
+  "name": "paseo-workspace-organizer",
+  "version": "0.1.0",
+  "description": "A workspace sidebar for Paseo with nested groups, rich workspace rows, filters, saved searches and GitHub status.",
+  "type": "module",
+  "files": [
+    "paseo-plugin.json",
+    "OVERVIEW.md",
+    "OVERVIEW.*.md",
+    "index.client.ts",
+    "index.client.tsx",
+    "index.server.ts",
+    "index.server.tsx",
+    "client/",
+    "server/",
+    "shared/",
+    "README.md",
+    "docs/guide.md",
+    "assets/"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.server.json",
+    "test": "vitest run",
+    "preview": "vite --host 127.0.0.1"
+  },
+  "devDependencies": {
+    "@getpaseo/plugin": "0.16.0-beta.2",
+    "@tanstack/react-query": "^5.90.11",
+    "@testing-library/react": "^16.3.3",
+    "@types/node": "^22.20.5",
+    "@types/react": "~19.2.0",
+    "@types/react-dom": "~19.2.0",
+    "jsdom": "^31.0.0",
+    "react": "19.1.0",
+    "react-dom": "^19.1.0",
+    "react-native": "0.81.5",
+    "react-native-web": "^0.21.4",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.8",
+    "vitest": "^5.1.0",
+    "zod": "^4.4.3"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ajma/paseo-workspace-organizer.git"
+  },
+  "homepage": "https://github.com/ajma/paseo-workspace-organizer#readme",
+  "bugs": {
+    "url": "https://github.com/ajma/paseo-workspace-organizer/issues"
+  },
+  "author": "Andrew Ma",
+  "keywords": [
+    "paseo",
+    "paseo-plugin",
+    "sidebar",
+    "workspaces",
+    "agents",
+    "github"
+  ]
+}
