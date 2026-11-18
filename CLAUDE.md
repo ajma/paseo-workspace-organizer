@@ -25,7 +25,7 @@ Done means all three pass, and you have observed the behaviour in the preview, n
 - **Module folders:** Paseo only builds plugin code under `client/`, `server/` and `shared/`. Anything else fails to load with "Plugin modules belong in client/, server/, or shared/".
 - **Host modules:** only `react`, `react-native`, `zod`, `@tanstack/react-query` and the `@getpaseo/plugin` entries exist at runtime, and an installed plugin has no `node_modules`, so this holds for type-only imports too (derive types from the plugin API instead). A test enforces it. There is no `react-dom`, so direct DOM work lives in `client/web.ts`, gated on `canFloat()` (web with a `document`).
 - **Host-scoped settings:** every host-scoped `defineSettings` document must be registered with `server.registerSettings` in `index.server.ts`, or the client gets "does not contribute RPC settings.*.read". A test enforces this.
-- **Settings versions:** 0.1.0 is published with every settings document at version 1, so saved settings must keep working from here on. A schema change bumps the document's `version` and adds a `migrate` that parses every older version; a new field also gets `.catch().default()` so a missing or bad value falls back. Paseo refuses settings saved under a newer version than the plugin's. `preferences` is per device; `organization`, `cards` and `celebration` are per host.
+- **Settings versions:** 0.1.0 was published with every settings document at version 1, so saved settings must keep working from here on. A schema change bumps the document's `version` and adds a `migrate` that parses every older version; a new field also gets `.catch().default()` so a missing or bad value falls back. Paseo refuses settings saved under a newer version than the plugin's. `preferences` is per device; `organization`, `cards` and `celebration` are per host.
 - **RPC limits:** RPC names match `/^[a-z][a-z0-9._-]*$/`, and paged queries take `limit` ≤ 200.
 - **Data Paseo doesn't expose to plugins** is read from its private storage. These interfaces are unpublished, so keep the readers small and failure-tolerant:
   - project icons: `~/.paseo/projects/icons/<sha256(projectId)>.bin`, plus discovery in the project folder
@@ -58,7 +58,7 @@ The README's screenshots come from the preview with `?showcase` (add `&celebrate
 
 ## Repo rules
 
-- **Version:** keep the package version at **0.1.0** until the owner asks for a release. Settings schema versions are separate (see Settings versions).
+- **Version:** the package is at **0.1.1**; change it only when the owner asks for a release. Settings schema versions are separate (see Settings versions).
 - **User docs:** when a feature changes, update its row in the README's "What's built in" table, the behaviour in `docs/guide.md`, and `OVERVIEW.md`, the summary shipped with the package.
 - **Commits:** each commit is one coherent change that typechecks and passes its tests on its own.
 - **Comments:** say why in plain language, one or two lines, next to the code they explain.

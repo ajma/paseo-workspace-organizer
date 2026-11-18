@@ -1,6 +1,6 @@
 {
   "name": "@ajma/paseo-workspace-organizer",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A workspace sidebar for Paseo with nested groups, rich workspace rows, filters, saved searches and GitHub status, plus confetti when a PR merges.",
   "type": "module",
   "files": [
