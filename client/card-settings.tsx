@@ -15,6 +15,7 @@ import { sampleCard } from "./card-sample";
 import type { Theme } from "./controls";
 import { font } from "./typography";
 import { useQueuedSave } from "./queued-save";
+import { useBracketShortcuts } from "./paseo-shortcuts";
 
 // A settings row whose control sits beside the label on wide screens and below it on phones.
 function Row({ theme, compact, title, hint, children }: { theme: Theme; compact: boolean; title: string; hint?: string; children: ReactNode }) {
@@ -32,6 +33,7 @@ export function CardSettingsScreen({ theme, layout: surface }: Pick<PluginSurfac
   const settings = useSettings(cards);
   const device = useSettings(preferences);
   const { values: prefs, update: updatePrefs } = useQueuedSave(device);
+  const brackets = useBracketShortcuts();
   const [error, setError] = useState<string | null>(null);
   const [confirmingReset, setConfirmingReset] = useState(false);
   if (settings.status !== "ready") return <Text style={{ color: theme.colors.foregroundMuted, fontSize: font.md, padding: 16 }}>
@@ -145,5 +147,12 @@ export function CardSettingsScreen({ theme, layout: surface }: Pick<PluginSurfac
           onValueChange={(linksInPaseo) => updatePrefs((current) => ({ ...current, linksInPaseo }))} />
       </SettingsCard>
     </SettingsSection>
+    {brackets.available ? <SettingsSection title="Back and forward">
+      <SettingsCard>
+        <SettingsSwitch label="Back and forward with ⌘[ and ⌘]"
+          hint="Paseo uses ⌘[ and ⌘] for Previous and Next workspace. Turn this on to use them for back and forward through the workspaces you've opened instead, even while you type. To use your mouse's side buttons, set them to send ⌘[ and ⌘] in the mouse's software. Off gives the keys back to Paseo. This changes Paseo's Settings → Shortcuts."
+          value={brackets.freed} onValueChange={brackets.setFreed} />
+      </SettingsCard>
+    </SettingsSection> : null}
   </View>;
 }

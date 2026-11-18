@@ -15,6 +15,7 @@ import type { IndexEvent } from "../shared/workspace-index";
 import { exactTag, facetKey, facetKeys, filtersSchema, hasFilters, matchesFilters, prFilters, statuses, tagName, type FilterOptionIds } from "../shared/search";
 import { SearchToolbar } from "./search-toolbar";
 import { useQueuedSave } from "./queued-save";
+import { useBracketShortcuts } from "./paseo-shortcuts";
 import { Dropdown } from "./dropdown";
 import { githubStatusLabel, type GithubStatus } from "../shared/github-status";
 import { font } from "./typography";
@@ -456,6 +457,9 @@ function WorkspaceTree({ theme, navigation, active, layout, settings, runtime, c
     void save(filed.value, settings.revision).then((saved) => { if (saved) clearPicks(); });
   }, [groupRequestKey, settings.revision]);
   const nav = useWorkspaceHistory(active.workspace, (workspace) => navigation.openWorkspace(workspace), (key) => openable.has(key));
+  // The buttons' hints name ⌘[ / ⌘] once Paseo has handed them over (they also work while typing), else ⌘← / ⌘→.
+  const brackets = useBracketShortcuts();
+  const historyKeys = brackets.freed ? { back: "⌘[", forward: "⌘]" } : { back: historyShortcutLabel(-1), forward: historyShortcutLabel(1) };
   // ⌘← / ⌘→ (Alt+← / Alt+→ off macOS) and the mouse's side buttons press Back and Forward.
   const latestNav = useRef(nav);
   latestNav.current = nav;
@@ -493,7 +497,7 @@ function WorkspaceTree({ theme, navigation, active, layout, settings, runtime, c
         view={cardMode} openCardSettings={openCardSettings} toolbar={toolbar}
         history={{ back: nav.back ? navTitles.get(nav.back.key) ?? "previous workspace" : null,
           forward: nav.forward ? navTitles.get(nav.forward.key) ?? "next workspace" : null, goBack: nav.goBack, goForward: nav.goForward,
-          keys: { back: historyShortcutLabel(-1), forward: historyShortcutLabel(1) } }}
+          keys: historyKeys }}
         collapseAll={groupIds.length ? { collapse: anyOpen, disabled: !canCollapse || searching, onPress: () => setCollapsed(groupIds, anyOpen) } : undefined} />
       <ErrorText theme={theme} message={editor ? null : settings.saveError} />
       <ErrorText theme={theme} message={displayError ?? index.getError()} />

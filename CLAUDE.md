@@ -31,6 +31,7 @@ Done means all three pass, and you have observed the behaviour in the preview, n
   - project icons: `~/.paseo/projects/icons/<sha256(projectId)>.bin`, plus discovery in the project folder
   - label colors: `~/.paseo/projects/workspace-labels.json`
   - host colors and badges: localStorage `@paseo:daemon-registry`
+  - keyboard shortcut changes: localStorage `@paseo:keyboard-shortcut-overrides`, loaded into the react-query key `["keyboard-shortcut-overrides"]`. The plugin writes both, only when the user flips the ⌘[ / ⌘] setting (`client/paseo-shortcuts.ts`).
 - **Stand-in host:** when code uses a new host API, add it to `preview/host.tsx` so the tests and the preview exercise it.
 
 ## React Native Web gotchas
