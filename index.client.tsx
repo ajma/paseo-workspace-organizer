@@ -12,6 +12,8 @@ import { createRemoteWorkspaces } from "./client/remote-workspaces";
 import { disposeProviderCatalogs } from "./client/agents";
 import { CardSettingsScreen } from "./client/card-settings";
 import { contributeCelebration } from "./client/celebration/contribute";
+import { placeSidebar } from "./client/sidebar-placement";
+import { readLocalHostIds } from "./client/web";
 
 // Opens a workspace for Command Center results and merge celebrations. Without a host it opens on this screen's host.
 function JumpToWorkspace({ navigation, params, theme, host }: PluginScreenProps) {
@@ -49,13 +51,16 @@ export default function contribute(client: PluginClientContext) {
   const removeSettings = client.addSettingsScreen({ id: "cards", title: "Sidebar", icon: { svg: logoSvg }, Component: CardSettingsScreen });
   const removeScreen = client.addScreen({ id: "jump", title: "Open workspace", Component: JumpToWorkspace });
   const removeLinkScreen = client.addScreen({ id: "open-link", title: "Open link", Component: OpenLinkInBrowser });
-  const removeSidebar = client.addSidebarView({
+  // With the plugin on several hosts, Paseo shows one copy's sidebar whatever its host, and each copy has its own host's
+  // groups; so the copy on this computer's host offers it, and another host's only when that copy isn't running.
+  const removeSidebar = placeSidebar({ hostId: () => index.getSnapshot()?.hostId ?? null, subscribe: index.subscribe,
+    localHosts: readLocalHostIds(), add: () => client.addSidebarView({
     id: "organized-workspaces", title: "Workspace organizer",
     description: "Nested custom groups with multiline notes, tags, PRs and issues",
     Component: (props) => <OrganizerSidebar {...props} index={index} icons={icons} labelColors={labelColors} remoteWorkspaces={remoteWorkspaces}
       openCardSettings={() => client.openSettings("cards")}
       openInBrowser={(url, workspace) => client.openScreen({ screenId: "open-link", params: { url, workspaceId: workspace.id, serverId: workspace.hostId } })} />,
-  });
+  }) });
   const removeCelebration = contributeCelebration(client, {
     openWorkspace: (workspaceId) => client.openScreen({ screenId: "jump", params: { workspaceId } }) });
   return () => { removeCelebration(); index.dispose(); icons.dispose(); labelColors.dispose(); remoteWorkspaces.dispose(); disposeProviderCatalogs(); void removeSidebar(); void removeScreen(); void removeLinkScreen(); void removeSettings(); void removeNewWorkspaceItem(); };

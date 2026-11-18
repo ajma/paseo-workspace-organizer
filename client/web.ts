@@ -1,5 +1,6 @@
 // Web-only reads of the Paseo app's own storage. Every export is a no-op on iOS and Android.
 import { Platform } from "react-native";
+import { localHostIds } from "../shared/sidebar-placement";
 import { isIdentityColor, type IdentityColor } from "../shared/identity-colors";
 import { lucide } from "./lucide";
 
@@ -24,6 +25,15 @@ export function readHostAppearance(): Map<string, { color: IdentityColor | null;
     }
   } catch { /* Unreadable or changed storage leaves hosts with Paseo's defaults. */ }
   return appearance;
+}
+
+// This computer's hosts (see localHostIds). None off the web, where there's no saved host list to read.
+export function readLocalHostIds(): Set<string> {
+  if (Platform.OS !== "web") return new Set();
+  try {
+    const storage = Reflect.get(globalThis, "localStorage") as Storage | undefined;
+    return localHostIds(storage?.getItem(HOST_REGISTRY_KEY) ?? null);
+  } catch { return new Set(); }
 }
 
 export function readHostColors(): Map<string, IdentityColor> {

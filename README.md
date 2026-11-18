@@ -126,7 +126,8 @@ Then press **Group → New group** and start dragging workspaces in. Row fields,
 - **GitHub Enterprise** links aren't supported yet.
 - **Mouse side buttons** don't reach Paseo with some mice on macOS. Turn on **Back and forward with ⌘[ and ⌘]** in the plugin's Sidebar settings, then set the buttons to send ⌘[ and ⌘] in the mouse's software.
 - **Merge celebrations** show on the desktop app and the web, not on phones. To archive from a celebration, turn off Paseo's automatic archiving after merge.
-- **Command Center results and automatic PR lookup** follow the host where the plugin is installed. Install it on each host where you want them.
+- **Command Center results, automatic PR lookup and merge celebrations** follow the host where the plugin is installed. Install it on each host where you want them, at the same version.
+- **Groups live on one host.** With the plugin on several hosts, each keeps its own groups, and the sidebar uses the copy on this computer's host. Another host's copy shows only when this computer has none.
 
 ## Development
 

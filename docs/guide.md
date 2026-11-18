@@ -25,7 +25,7 @@ Each link shows its GitHub status. PRs show Open, Draft, Merged or Closed, plus 
 
 Status is cached for 60 seconds and refreshed while connected, with four reads at a time per client subscription. The plugin sends configured PR/issue URLs to GitHub through `gh`; credentials stay with the CLI on the daemon machine. Paseo's detected PR status is used as a fallback. An unavailable status is labeled explicitly, and a failed refresh keeps the last known result with a stale label. The plugin does not infer issue relationships or modify PRs/issues.
 
-The sidebar shows active workspaces across app-connected hosts using Paseo refs. Saved assignments use both host and workspace IDs. Command Center registrations and automatic PR detection follow the installation's host, as required by Paseo's command contribution scope. Install on each host where you want those features. Each installation has its own organization settings.
+The sidebar shows active workspaces across app-connected hosts using Paseo refs. Saved assignments use both host and workspace IDs. Command Center registrations and automatic PR detection follow the installation's host, as required by Paseo's command contribution scope. Install on each host where you want those features. Each installation has its own organization settings. With the plugin installed on several hosts, each host keeps its own groups and settings; Paseo shows one copy's sidebar, so the copy on this computer's host (one Paseo reaches directly on localhost) offers it, and another host's copy steps in only when this computer has none. Install the same version on every host.
 
 ## Archive shortcut
 
