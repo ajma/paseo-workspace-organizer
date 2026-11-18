@@ -26,7 +26,7 @@ const separatorGutter = 14;
 // What the hover buttons and ⋯ menu can do for a live workspace. The settings preview passes none.
 export type CardActions = {
   onArchive: () => void; pinned: boolean; onTogglePin?: () => void;
-  onEdit?: () => void; onCopyPath?: () => void; onCopyBranch?: () => void;
+  onEdit?: () => void; onRename?: () => void; onCopyPath?: () => void; onCopyBranch?: () => void;
 };
 
 // React Native Web reports hover in Pressable's style callback; React Native's types do not include it.
@@ -238,6 +238,7 @@ export function WorkspaceCardView({ theme, model, fields, labelLimit, titleLines
       zIndex: 30, minWidth: 170, padding: 4, borderRadius: 8, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.surface1,
       shadowColor: "#000", shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 8, cursor: "auto" } as object}>
       {[actions.onEdit ? ["Edit details", actions.onEdit] as const : null,
+        actions.onRename ? ["Rename…", actions.onRename] as const : null,
         actions.onCopyPath ? ["Copy path", actions.onCopyPath] as const : null,
         actions.onCopyBranch ? ["Copy branch name", actions.onCopyBranch] as const : null,
         actions.onTogglePin ? [actions.pinned ? "Unpin" : "Pin to top", actions.onTogglePin] as const : null,

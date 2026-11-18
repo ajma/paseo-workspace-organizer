@@ -39,6 +39,10 @@ let agents: any[] = [];
 export const archiveCalls: string[] = [];
 let archiveError: string | null = null;
 export function failArchives(message: string | null) { archiveError = message; }
+// Renaming sets the workspace's title (null goes back to its name), like Paseo; tests can make it fail.
+export const renameCalls: { id: string; title: string | null }[] = [];
+let renameError: string | null = null;
+export function failRenames(message: string | null) { renameError = message; }
 // The New workspace screen's setup, and metadata the plugin sets on existing workspaces.
 let newWorkspaceMetadata: Record<string, unknown> = {};
 export const metadataCalls: { hostId: string; id: string; patch: Record<string, unknown> }[] = [];
@@ -53,7 +57,7 @@ export function useNewWorkspace() {
     },
     setIsolation: async () => {}, setBaseRef: async () => {}, setBranch: async () => {} };
 }
-export function resetHost() { workspaces = sampleWorkspaces(); agents = []; archiveCalls.length = 0; archiveError = null;
+export function resetHost() { workspaces = sampleWorkspaces(); agents = []; archiveCalls.length = 0; archiveError = null; renameCalls.length = 0; renameError = null;
   newWorkspaceMetadata = {}; metadataCalls.length = 0; documents = { organization: { revision: "1", values: sampleOrganization() }, preferences: { revision: "1", values: { collapsed: [] } }, cards: { revision: "1", values: {} }, celebration: { revision: "1", values: {} } }; for (const key of Object.keys(saveErrors)) delete saveErrors[key]; emit(); }
 resetHost();
 export function getOrganization() { return documents.organization.values; }
@@ -157,7 +161,14 @@ export function getPaseoClient(_hostId: string) {
     providers: { snapshot: async () => providerSnapshot, subscribe: () => () => {} },
     workspaces: {
       ref: (id: string) => ({ setMetadata: async (patch: Record<string, unknown>) => { metadataCalls.push({ hostId: _hostId, id, patch }); },
-        setPinned: async () => ({}) }),
+        setPinned: async () => ({}),
+        setTitle: async (title: string | null) => {
+          renameCalls.push({ id, title });
+          if (renameError) throw new Error(renameError);
+          workspaces = workspaces.map((item) => item.id === id && item.hostId === _hostId ? { ...item, title } : item);
+          emit();
+          return { title };
+        } }),
       archive: async (id: string) => {
         archiveCalls.push(id);
         if (archiveError) throw new Error(archiveError);

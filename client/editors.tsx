@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { getPaseoClient, type WorkspaceRef } from "@getpaseo/plugin/client";
 import { Text, View } from "react-native";
 import { descendants, dissolveGroup, emptyDetails, parseLinks, type Group, type Organization } from "../shared/organization";
 import { Button, Choices, EditorFrame, ErrorText, Field, type Theme } from "./controls";
@@ -81,5 +82,35 @@ export function WorkspaceEditor({ theme, title, workspaceKey, value, revision, s
       <Button theme={theme} label="Cancel" disabled={saving} onPress={close} />
     </View>
     {saveError ? <Button theme={theme} label="Close and reload latest changes" disabled={saving} onPress={close} /> : null}
+  </EditorFrame>;
+}
+
+// Renames a workspace the way Paseo's own sidebar does: its title. An empty name goes back to Paseo's default name.
+export function RenameEditor({ theme, reference, title, defaultName, close }: {
+  theme: Theme; reference: WorkspaceRef; title: string; defaultName: string; close: () => void;
+}) {
+  const [name, setName] = useState(title);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  async function submit() {
+    const next = name.trim();
+    if (next === title) { close(); return; }
+    setSaving(true); setError(null);
+    try {
+      await getPaseoClient(reference.hostId).workspaces.ref(reference.id).setTitle(next || null);
+      close();
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : String(failure));
+      setSaving(false);
+    }
+  }
+  return <EditorFrame theme={theme} title="Rename workspace">
+    <Field theme={theme} label="Workspace name" value={name} onChangeText={setName} autoFocus onSubmit={() => void submit()} />
+    <Text style={{ color: theme.colors.foregroundMuted, fontSize: font.sm }}>Leave it empty to use Paseo’s name, “{defaultName}”.</Text>
+    <ErrorText theme={theme} message={error} />
+    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+      <Button theme={theme} label={saving ? "Saving…" : "Save name"} primary disabled={saving} onPress={() => void submit()} />
+      <Button theme={theme} label="Cancel" disabled={saving} onPress={close} />
+    </View>
   </EditorFrame>;
 }

@@ -9,7 +9,7 @@ import { descendants, preferences, dissolveGroup, emptyDetails, matchesSearch, m
 import { prBucket, prBuckets, type GroupBy } from "../shared/grouping";
 import { useDragDrop, useDragging, useTargetGroup, type DragPayload, type DropPosition } from "./drag";
 import { Button, ErrorText, type Theme } from "./controls";
-import { GroupEditor, groupPath, WorkspaceEditor, type Save } from "./editors";
+import { GroupEditor, groupPath, RenameEditor, WorkspaceEditor, type Save } from "./editors";
 import { useWorkspaceIndex, type WorkspaceIndex } from "./workspace-index";
 import type { IndexEvent } from "../shared/workspace-index";
 import { exactTag, facetKey, facetKeys, filtersSchema, hasFilters, matchesFilters, prFilters, statuses, tagName, type FilterOptionIds } from "../shared/search";
@@ -50,7 +50,8 @@ function useNow(intervalMs: number) {
 }
 
 type ReadySettings = Extract<ReturnType<typeof useSettings<typeof organization.schema>>, { status: "ready" }>;
-type Editor = { kind: "group"; group?: Group; parentId: string | null } | { kind: "workspace"; key: string; title: string } | null;
+type Editor = { kind: "group"; group?: Group; parentId: string | null } | { kind: "workspace"; key: string; title: string }
+  | { kind: "rename"; reference: WorkspaceRef; title: string; defaultName: string } | null;
 
 type CardConfig = { fields: ReadonlySet<CardField>; labelLimit: LabelLimit; titleLines: TitleLines };
 
@@ -67,13 +68,13 @@ function WithAgent({ agent, hostId, children }: { agent: AgentRef; hostId: strin
   return <>{children(snapshot ? { ...agentLabels(catalog, snapshot), modelId: snapshot.model, status: snapshot.status } : null)}</>;
 }
 
-function WorkspaceRow({ reference, theme, navigation, active, now, details, detectedLinks, git, github, hostLabel, hostIconOnly, hostColor, card, icons, installationHostId, labelList, onEdit, drag, openInBrowser }: {
+function WorkspaceRow({ reference, theme, navigation, active, now, details, detectedLinks, git, github, hostLabel, hostIconOnly, hostColor, card, icons, installationHostId, labelList, onEdit, onRename, drag, openInBrowser }: {
   reference: WorkspaceRef; theme: Theme; navigation: PluginSidebarViewProps["navigation"]; active: string | undefined; now: number;
   details: ReturnType<typeof emptyDetails>; detectedLinks: ReturnType<typeof mergeLinks>; git: CardModel["git"]; hostLabel?: string;
   hostIconOnly: boolean; hostColor: IdentityColor | null;
   github: Record<string, GithubStatus>; card: CardConfig; icons?: ProjectIconStore; installationHostId?: string;
   labelList: readonly { name: string; color: IdentityColor }[];
-  onEdit: (title: string) => void; drag: DragSpec;
+  onEdit: (title: string) => void; onRename: (title: string, defaultName: string) => void; drag: DragSpec;
   openInBrowser?: (url: string, workspace: WorkspaceRef) => void;
 }) {
   const workspace = useWorkspace(reference);
@@ -111,6 +112,7 @@ function WorkspaceRow({ reference, theme, navigation, active, now, details, dete
     actions={{
       onArchive: archive,
       onEdit: () => onEdit(title),
+      onRename: () => onRename(title, workspace.name),
       onCopyPath: workspace.directory ? () => void copyText(workspace.directory).then(() => toast.show("Path copied")) : undefined,
       onCopyBranch: workspace.branch ? () => void copyText(workspace.branch!).then(() => toast.show("Branch name copied")) : undefined,
       pinned: Boolean(workspace.pinnedAt),
@@ -352,6 +354,7 @@ function WorkspaceTree({ theme, navigation, active, layout, settings, runtime, c
       hostLabel={hosts.length > 1 && hostBadgeFor(ref.hostId) !== "hidden" ? hosts.find((host) => host.serverId === ref.hostId)?.label : undefined}
       hostIconOnly={hostBadgeFor(ref.hostId) === "icon"} hostColor={hostAppearance.get(ref.hostId)?.color ?? null}
       onEdit={(title) => setEditor({ kind: "workspace", key: ref.key, title })}
+      onRename={(title, defaultName) => setEditor({ kind: "rename", reference: ref, title, defaultName })}
       drag={rowDrag(ref.key, bucket, siblings, groupId)} />);
   }
   const groupMenu = (group: Group) => busy ? [] : [
@@ -480,7 +483,10 @@ function WorkspaceTree({ theme, navigation, active, layout, settings, runtime, c
     : editor?.kind === "workspace"
       ? { title: `Organize ${editor.title}`, element: <WorkspaceEditor key={`workspace-editor:${editor.key}`} theme={theme} title={editor.title} workspaceKey={editor.key}
         value={value} revision={settings.revision} save={save} close={closeEditor} saving={settings.saving} saveError={settings.saveError} /> }
-      : null;
+      : editor?.kind === "rename"
+        ? { title: "Rename workspace", element: <RenameEditor key={`rename:${editor.reference.key}`} theme={theme} reference={editor.reference}
+          title={editor.title} defaultName={editor.defaultName} close={closeEditor} /> }
+        : null;
   // Kept while the popover fades out after closing.
   if (editorPopover) lastEditor.current = editorPopover;
   const editorMaxHeight = treeHeight && toolbarHeight ? Math.max(160, treeHeight - toolbarHeight - 12) : undefined;

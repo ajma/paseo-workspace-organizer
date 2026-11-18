@@ -59,7 +59,7 @@ When you run a dozen agents at once, a flat list of workspaces stops working. **
 - **Back and Forward** through the workspaces you've opened, like a browser: buttons, **⌘← / ⌘→**, your mouse's side buttons, or **⌘[ / ⌘]**, which a setting takes over from Paseo's Previous and Next workspace.
 - **Safe archiving.** Confirm with a red Archive button, or press **⌘⇧⌫** twice, and the row slides away.
 - **Links open where you work.** PRs and issues open as a Paseo browser tab in the workspace, or in your default browser if you prefer (a setting).
-- **Quick actions** in every row's ⋯ menu: edit notes, tags and links, copy path or branch, pin.
+- **Quick actions** in every row's ⋯ menu: edit notes, tags and links, rename, copy path or branch, pin.
 
 ### 🎉 Celebrate shipped work
 
@@ -88,7 +88,7 @@ When you run a dozen agents at once, a flat list of workspaces stops working. **
 | **Details** | Hover panel with every field in full · clickable PR and issue links · long-press on phones |
 | **Search** | Text search · ⌘K Command Center results by PR or issue number · filters (status, tags, host, project, PR) with counts · two-level and emoji tags · saved searches |
 | **Navigation** | Back / Forward history with ⌘← / ⌘→, ⌘[ / ⌘] and mouse side buttons · open-workspace highlight · links open in a Paseo browser tab or your default browser (setting) |
-| **Actions** | Archive with confirmation and slide-away animation · ⌘⇧⌫ archive shortcut · edit details · copy path · copy branch · pin / unpin |
+| **Actions** | Archive with confirmation and slide-away animation · ⌘⇧⌫ archive shortcut · edit details · rename · copy path · copy branch · pin / unpin |
 | **Toolbar** | Search · Filters · Saved · View · Group · Sort · reorderable chips · ⋯ menu with button labels toggle and plugin settings · hover hints · two-line layout in narrow sidebars |
 | **Celebrations** | Confetti and a recap when a PR merges · open or archive the workspace from the recap · ⌥O / ⌥A shortcuts · verb, emoji, issue recap and confetti settings · preview from ⌘K · desktop and web |
 | **GitHub** | Paseo-detected PRs · automatic PR lookup by branch via `gh` · manual PR and issue links across repositories · status cached and refreshed |
@@ -116,7 +116,7 @@ Then press **Group → New group** and start dragging workspaces in. Row fields,
 
 - **Groups, notes, tags, links, saved searches and celebration settings** are stored in Paseo's settings on the installation's host, and every connected client shares them.
 - **View, sort, grouping, collapsed groups, the toolbar layout, sticky headers and where links open** are saved on each device.
-- The plugin **never renames workspaces or changes their labels, branches or files**.
+- The plugin **renames a workspace only when you choose Rename…**, and never changes labels, branches or files.
 - **Removing the plugin** deletes its settings.
 
 ## Good to know

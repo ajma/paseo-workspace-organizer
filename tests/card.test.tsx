@@ -88,7 +88,7 @@ it("shows the host beside a server icon after the project", () => {
 });
 
 it("shows archive and ⋯ while the pointer is on the card; archive asks for a second press; the menu runs actions", () => {
-  const actions = { onArchive: vi.fn(), onEdit: vi.fn(), onCopyPath: vi.fn(), onCopyBranch: vi.fn(), onTogglePin: vi.fn(), pinned: false };
+  const actions = { onArchive: vi.fn(), onEdit: vi.fn(), onRename: vi.fn(), onCopyPath: vi.fn(), onCopyBranch: vi.fn(), onTogglePin: vi.fn(), pinned: false };
   const onOpen = vi.fn();
   render(<WorkspaceCardView theme={theme} model={sampleCard(Date.now())} fields={new Set(cardFields)} labelLimit="all" titleLines="2" onOpen={onOpen} actions={actions} />);
   const card = screen.getByLabelText("Branch").closest('[data-testid="workspace-row"]') as HTMLElement;
@@ -100,9 +100,12 @@ it("shows archive and ⋯ while the pointer is on the card; archive asks for a s
   expect(actions.onArchive).toHaveBeenCalledTimes(1);
   expect(onOpen).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "Workspace actions" }));
-  expect(screen.getAllByRole("menuitem").map((item) => item.textContent)).toEqual(["Edit details", "Copy path", "Copy branch name", "Pin to top", "Archive…"]);
+  expect(screen.getAllByRole("menuitem").map((item) => item.textContent)).toEqual(["Edit details", "Rename…", "Copy path", "Copy branch name", "Pin to top", "Archive…"]);
   fireEvent.click(screen.getByRole("menuitem", { name: "Copy branch name" }));
   expect(actions.onCopyBranch).toHaveBeenCalledTimes(1);
+  fireEvent.click(screen.getByRole("button", { name: "Workspace actions" }));
+  fireEvent.click(screen.getByRole("menuitem", { name: "Rename…" }));
+  expect(actions.onRename).toHaveBeenCalledTimes(1);
   expect(screen.queryByRole("menu")).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Workspace actions" }));
   fireEvent.click(screen.getByRole("menuitem", { name: "Pin to top" }));

@@ -3,7 +3,7 @@ import { act, createEvent, fireEvent, render, screen, waitFor } from "@testing-l
 import { OrganizerSidebar } from "../client/sidebar";
 import { HINT_DELAY_MS } from "../client/hint";
 import { createProjectIconStore } from "../client/project-icons";
-import { archiveCalls, changeOrganization, failArchives, getDocument, getOrganization, makeIndex, resetHost, setWorkspaces, theme, workspace } from "../preview/host";
+import { archiveCalls, changeOrganization, failArchives, failRenames, getDocument, getOrganization, makeIndex, renameCalls, resetHost, setWorkspaces, theme, workspace } from "../preview/host";
 import { emptyDetails, workspaceKey } from "../shared/organization";
 
 beforeEach(resetHost);
@@ -72,6 +72,36 @@ it("moves a workspace to a custom group and saves multiline notes, tags and mult
   await waitFor(() => expect(getOrganization().workspaces[workspaceKey("local", "notes")]).toMatchObject({ groupId: "interface", subtitle: "First line\nSecond line", tags: ["alpha", "beta"], links: expect.any(Array) }));
   expect(getOrganization().workspaces[workspaceKey("local", "notes")].links).toHaveLength(3);
 });
+it("renames a workspace from its menu, and an empty name goes back to Paseo's", async () => {
+  setWorkspaces([workspace("notes", "Explore next ideas", { name: "notes-default", projectId: "notes", projectDisplayName: "notes", branch: null })]);
+  show();
+  rowMenu("Explore next ideas", "Rename…");
+  const field = () => screen.getByRole("textbox", { name: "Workspace name" }) as HTMLInputElement;
+  expect(field().value).toBe("Explore next ideas");
+  expect(screen.getByText(/notes-default/)).toBeTruthy();
+  fireEvent.change(field(), { target: { value: "  Brainstorm  " } });
+  fireEvent.click(screen.getByRole("button", { name: "Save name" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: /^Open Brainstorm/ })).toBeTruthy());
+  expect(renameCalls).toEqual([{ id: "notes", title: "Brainstorm" }]);
+  expect(screen.queryByRole("textbox", { name: "Workspace name" })).toBeNull();
+  rowMenu("Brainstorm", "Rename…");
+  fireEvent.change(field(), { target: { value: "" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save name" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: /^Open notes-default/ })).toBeTruthy());
+  expect(renameCalls.at(-1)).toEqual({ id: "notes", title: null });
+});
+
+it("keeps the rename open with the reason when renaming fails", async () => {
+  failRenames("Host is offline");
+  show();
+  rowMenu("Explore next ideas", "Rename…");
+  fireEvent.change(screen.getByRole("textbox", { name: "Workspace name" }), { target: { value: "Brainstorm" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save name" }));
+  await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("Host is offline"));
+  expect((screen.getByRole("textbox", { name: "Workspace name" }) as HTMLInputElement).value).toBe("Brainstorm");
+  expect(screen.getByRole("button", { name: /^Open Explore next ideas/ })).toBeTruthy();
+});
+
 it("keeps an unsaved draft when another client changes the organization", async () => {
   show();
   rowMenu("Explore next ideas", "Edit details");

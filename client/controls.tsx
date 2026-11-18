@@ -13,12 +13,14 @@ export function Button({ theme, label, accessibilityLabel = label, onPress, disa
     <Text style={{ color: primary ? theme.colors.accentForeground : theme.colors.foreground, fontSize: font.sm }}>{label}</Text>
   </Pressable>;
 }
-export function Field({ theme, label, value, onChangeText, multiline = false, placeholder }: {
+export function Field({ theme, label, value, onChangeText, multiline = false, placeholder, autoFocus, onSubmit }: {
   theme: Theme; label: string; value: string; onChangeText: (text: string) => void; multiline?: boolean; placeholder?: string;
+  autoFocus?: boolean; onSubmit?: () => void;
 }) {
   return <View style={{ gap: 5 }}>
     <Text style={{ color: theme.colors.foregroundMuted, fontSize: font.sm }}>{label}</Text>
     <TextInput accessibilityLabel={label} value={value} onChangeText={onChangeText} multiline={multiline} placeholder={placeholder}
+      autoFocus={autoFocus} onSubmitEditing={onSubmit}
       placeholderTextColor={theme.colors.foregroundMuted} autoCapitalize="none" autoCorrect={false}
       style={{ color: theme.colors.foreground, backgroundColor: theme.colors.surface0, borderColor: theme.colors.border,
         borderWidth: 1, padding: 8, borderRadius: 5, fontSize: font.md, minHeight: multiline ? 76 : 34, textAlignVertical: "top" }} />
