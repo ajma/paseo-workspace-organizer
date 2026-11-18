@@ -59,10 +59,10 @@ it("persists all criteria and rejects ambiguous duplicate saved-search names", (
   expect(organizationSchema.safeParse({ savedSearches: [saved, { ...saved, id: "s2", name: " my REVIEWS " }] }).success).toBe(false);
 });
 
-// Nothing is published yet, so every settings document starts at version 1 with no migrations.
-it("starts every settings document at version 1 and fills missing preferences with defaults", () => {
-  expect([organization, cards, preferences].map((definition) => definition.version)).toEqual([1, 1, 1]);
-  expect(preferencesSchema.parse({ collapsed: ["active"] })).toEqual({ collapsed: ["active"], sort: "manual", titleLines: "2", groupBy: "groups", toolbarOrder: [], toolbarLabels: true, stickyHeaders: true, linksInPaseo: true });
+// 0.1.0 shipped every settings document at version 1; preferences gained the picked host in version 2.
+it("versions the settings documents and fills missing preferences with defaults", () => {
+  expect([organization, cards, preferences].map((definition) => definition.version)).toEqual([1, 1, 2]);
+  expect(preferencesSchema.parse({ collapsed: ["active"] })).toEqual({ collapsed: ["active"], sort: "manual", titleLines: "2", groupBy: "groups", toolbarOrder: [], toolbarLabels: true, stickyHeaders: true, linksInPaseo: true, sidebarHost: null });
 });
 
 it("matches exact tag filters only against that tag and keeps them through saving", () => {

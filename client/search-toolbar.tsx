@@ -60,7 +60,7 @@ function IconButton({ theme, label, icon, onPress, pressed, disabled = false, hi
 }
 
 export function SearchToolbar({ theme, criteria, onChange, tags, hosts, projects, value, revision, save, disabled, onReload, sort, onSortChange, sortDisabled,
-  groupBy = "groups", onGroupByChange, onNewGroup, counts, view, openCardSettings, collapseAll, toolbar, history, icons, installationHostId, labelColors }: {
+  groupBy = "groups", onGroupByChange, onNewGroup, counts, view, openCardSettings, collapseAll, toolbar, hostChoice, history, icons, installationHostId, labelColors }: {
   theme: Theme; criteria: SearchCriteria; onChange: (criteria: SearchCriteria) => void;
   tags: FilterOption[]; hosts: FilterOption[]; projects: FilterOption[];
   value: Organization; revision: string; save: Save; disabled: boolean; onReload: () => void;
@@ -75,6 +75,8 @@ export function SearchToolbar({ theme, criteria, onChange, tags, hosts, projects
   history?: { back: string | null; forward: string | null; goBack: () => void; goForward: () => void; keys?: { back: string; forward: string } };
   // The chips' order and whether they show text, remembered on the device.
   toolbar?: { order: readonly string[]; labels: boolean; setOrder: (order: ToolbarChip[]) => void; setLabels: (labels: boolean) => void };
+  // Hosts running the plugin, when there are several: whose groups the sidebar uses.
+  hostChoice?: { hosts: { id: string; label: string }[]; current: string | null; choose: (id: string) => void };
   icons?: ProjectIconStore; installationHostId?: string; labelColors?: LabelColorStore;
 }) {
   // Widths for fitting chips beside the icon buttons, from layout.
@@ -144,7 +146,7 @@ export function SearchToolbar({ theme, criteria, onChange, tags, hosts, projects
   // Everything on one line when it fits beside all the icon buttons. Otherwise the line splits in two: back and forward
   // stay on the first line, and collapse and the ⋯ menu move to the end of the second.
   const chipWidths = items.map((id) => widths[id]);
-  const navWidth = history ? widths.nav : 0, toolsWidth = collapseAll || toolbar || openCardSettings ? widths.tools : 0;
+  const navWidth = history ? widths.nav : 0, toolsWidth = collapseAll || toolbar || openCardSettings || hostChoice ? widths.tools : 0;
   const bothWidths = navWidth === undefined || toolsWidth === undefined ? undefined : navWidth + toolsWidth;
   const oneLine = firstLineCount(chipWidths, rowWidth, bothWidths, CHIP_GAP) === items.length;
   const fit = oneLine ? items.length : firstLineCount(chipWidths, rowWidth, navWidth, CHIP_GAP);
@@ -163,10 +165,10 @@ export function SearchToolbar({ theme, criteria, onChange, tags, hosts, projects
     <IconButton theme={theme} label={history.forward ? `Forward to ${history.forward}` : "Forward"} icon="ArrowRight" onPress={history.goForward}
       disabled={!history.forward} hint={history.keys ? `${history.forward ? `Forward to ${history.forward}` : "Forward"} (${history.keys.forward})` : undefined} />
   </View> : null;
-  const toolButtons = collapseAll || toolbar || openCardSettings ? <View onLayout={measure("tools")} style={{ flexDirection: "row", alignItems: "center", minHeight: 28 }}>
+  const toolButtons = collapseAll || toolbar || openCardSettings || hostChoice ? <View onLayout={measure("tools")} style={{ flexDirection: "row", alignItems: "center", minHeight: 28 }}>
     {collapseAll ? <IconButton theme={theme} label={collapseAll.collapse ? "Collapse all groups" : "Expand all groups"}
       icon={collapseAll.collapse ? "ChevronsDownUp" : "ChevronsUpDown"} onPress={collapseAll.onPress} disabled={collapseAll.disabled} /> : null}
-    {toolbar || openCardSettings ? <IconButton theme={theme} label="More options" icon="Ellipsis"
+    {toolbar || openCardSettings || hostChoice ? <IconButton theme={theme} label="More options" icon="Ellipsis"
       onPress={() => toggleMenu("more")} pressed={menu === "more"} /> : null}
   </View> : null;
   return <View style={{ gap: 7 }}>
@@ -217,6 +219,12 @@ export function SearchToolbar({ theme, criteria, onChange, tags, hosts, projects
         </> : null}
       </View>}</Dropdown> : null}
       <Dropdown theme={theme} open={menu === "more"} label="More options" align="right">{() => <View style={{ padding: 4 }}>
+        {hostChoice && hostChoice.hosts.length > 1 ? <>
+          <Text style={{ color: theme.colors.foregroundMuted, fontSize: font.xs, paddingHorizontal: 10, paddingTop: 6, paddingBottom: 2 }}>Groups from</Text>
+          {hostChoice.hosts.map((host) => <MenuChoice key={host.id} theme={theme} label={host.label} accessibilityLabel={`Groups from ${host.label}`}
+            selected={hostChoice.current === host.id} onPress={() => { hostChoice.choose(host.id); setMenu(null); }} />)}
+          {toolbar || openCardSettings ? <View style={{ height: 1, backgroundColor: theme.colors.border, marginVertical: 4 }} /> : null}
+        </> : null}
         {toolbar ? <MenuChoice theme={theme} label="Show button labels" selected={labelsOn}
           onPress={() => { toolbar.setLabels(!labelsOn); setMenu(null); }} /> : null}
         {toolbar && openCardSettings ? <View style={{ height: 1, backgroundColor: theme.colors.border, marginVertical: 4 }} /> : null}

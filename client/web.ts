@@ -36,6 +36,18 @@ export function readLocalHostIds(): Set<string> {
   } catch { return new Set(); }
 }
 
+// The host picked in Groups from, as Paseo stores this plugin's device preferences (not a public contract), so the
+// copies agree before any sidebar has drawn. Off the web, or if unreadable, the sidebar works it out once drawn.
+export function readStoredSidebarHost(pluginId = "paseo-workspace-organizer"): string | null {
+  if (Platform.OS !== "web") return null;
+  try {
+    const storage = Reflect.get(globalThis, "localStorage") as Storage | undefined;
+    const stored: unknown = JSON.parse(storage?.getItem(`@paseo:plugin-device-settings:${pluginId}/preferences`) ?? "null");
+    const host = (stored as { values?: { sidebarHost?: unknown } } | null)?.values?.sidebarHost;
+    return typeof host === "string" ? host : null;
+  } catch { return null; }
+}
+
 export function readHostColors(): Map<string, IdentityColor> {
   return new Map([...readHostAppearance()].flatMap(([id, value]) => (value.color ? [[id, value.color] as const] : [])));
 }

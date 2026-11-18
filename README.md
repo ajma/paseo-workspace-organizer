@@ -89,7 +89,7 @@ When you run a dozen agents at once, a flat list of workspaces stops working. **
 | **Search** | Text search · ⌘K Command Center results by PR or issue number · filters (status, tags, host, project, PR) with counts · two-level and emoji tags · saved searches |
 | **Navigation** | Back / Forward history with ⌘← / ⌘→, ⌘[ / ⌘] and mouse side buttons · open-workspace highlight · links open in a Paseo browser tab or your default browser (setting) |
 | **Actions** | Archive with confirmation and slide-away animation · ⌘⇧⌫ archive shortcut · edit details · rename · copy path · copy branch · pin / unpin |
-| **Toolbar** | Search · Filters · Saved · View · Group · Sort · reorderable chips · ⋯ menu with button labels toggle and plugin settings · hover hints · two-line layout in narrow sidebars |
+| **Toolbar** | Search · Filters · Saved · View · Group · Sort · reorderable chips · ⋯ menu with Groups from (when several hosts run it), button labels toggle and plugin settings · hover hints · two-line layout in narrow sidebars |
 | **Celebrations** | Confetti and a recap when a PR merges · open or archive the workspace from the recap · ⌥O / ⌥A shortcuts · verb, emoji, issue recap and confetti settings · preview from ⌘K · desktop and web |
 | **GitHub** | Paseo-detected PRs · automatic PR lookup by branch via `gh` · manual PR and issue links across repositories · status cached and refreshed |
 | **Polish** | Paseo-native look · smooth animations that respect reduced motion · per-device preferences · settings shared across clients |
@@ -127,7 +127,7 @@ Then press **Group → New group** and start dragging workspaces in. Row fields,
 - **Mouse side buttons** don't reach Paseo with some mice on macOS. Turn on **Back and forward with ⌘[ and ⌘]** in the plugin's Sidebar settings, then set the buttons to send ⌘[ and ⌘] in the mouse's software.
 - **Merge celebrations** show on the desktop app and the web, not on phones. To archive from a celebration, turn off Paseo's automatic archiving after merge.
 - **Command Center results, automatic PR lookup and merge celebrations** follow the host where the plugin is installed. Install it on each host where you want them, at the same version.
-- **Groups live on this computer's host.** With the plugin on several hosts, each keeps its own groups, and the sidebar only ever uses the copy on this computer's host; other hosts' groups never show. On a phone, which has no local host, any host's copy can show it.
+- **Groups live on one host.** With the plugin on several hosts, each keeps its own groups and the sidebar uses one host's: the only one running it, else this computer's. Switch with **⋯ → Groups from** (saved on each device; on a phone, pick the host you want).
 
 ## Development
 

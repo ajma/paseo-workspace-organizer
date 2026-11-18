@@ -16,6 +16,8 @@ import { exactTag, facetKey, facetKeys, filtersSchema, hasFilters, matchesFilter
 import { SearchToolbar } from "./search-toolbar";
 import { useQueuedSave } from "./queued-save";
 import { useBracketShortcuts } from "./paseo-shortcuts";
+import { chooseSidebarHost, useSidebarHosts } from "./sidebar-placement";
+import { sidebarHostFor } from "../shared/sidebar-placement";
 import { Dropdown } from "./dropdown";
 import { githubStatusLabel, type GithubStatus } from "../shared/github-status";
 import { font } from "./typography";
@@ -32,7 +34,7 @@ import { useRemoteWorkspaces, type RemoteWorkspaces } from "./remote-workspaces"
 import { archiveWorkspace, useArchiveShortcut, useRowArchiver } from "./archive-shortcut";
 import { Leaving } from "./motion";
 import { Collapsible, TurningChevron } from "./collapsible";
-import { backgroundBehind, historyShortcutLabel, hostBadge, isElectron, onHistoryInput, readHostAppearance } from "./web";
+import { backgroundBehind, historyShortcutLabel, hostBadge, isElectron, onHistoryInput, readHostAppearance, readLocalHostIds } from "./web";
 import { detectedStatus, workspaceEntry } from "../shared/workspace-entry";
 import type { PluginWorkspaceSnapshot } from "@getpaseo/plugin";
 import type { ToolbarChip } from "../shared/toolbar";
@@ -143,6 +145,18 @@ export function OrganizerSidebar(props: PluginSidebarViewProps & { index: Worksp
   // Per-device preferences, with quick successive changes saved one after another.
   const { values: prefs, update: updatePrefs } = useQueuedSave(device);
   const runtime = useWorkspaceIndex(props.index);
+  // Groups from: when several hosts run the plugin, the saved pick tells every copy whose sidebar to show.
+  const sidebarHosts = useSidebarHosts();
+  const allHosts = useHosts();
+  const savedHost = prefs ? prefs.sidebarHost : undefined;
+  useEffect(() => { if (savedHost !== undefined) chooseSidebarHost(savedHost); }, [savedHost]);
+  const localHosts = readLocalHostIds();
+  const hostChoice = sidebarHosts.running.length > 1 ? {
+    hosts: sidebarHosts.running.map((id) => ({ id, label: `${allHosts.find((host) => host.serverId === id)?.label ?? id}${localHosts.has(id) ? " (this computer)" : ""}` })),
+    current: sidebarHostFor({ chosen: sidebarHosts.chosen, localHosts, running: new Set(sidebarHosts.running), waited: true }),
+    // This computer's host is the default, so picking it clears the pick.
+    choose: (id: string) => { const sidebarHost = localHosts.has(id) ? null : id; updatePrefs((values) => ({ ...values, sidebarHost })); chooseSidebarHost(sidebarHost); },
+  } : undefined;
   useArchiveShortcut(props.active.workspace);
   const cardSettings = useSettings(cards);
   const card = effectiveCard(cardSettings.status === "ready" ? cardSettings.values : defaultCardSettings(), props.layout.compact,
@@ -167,6 +181,7 @@ export function OrganizerSidebar(props: PluginSidebarViewProps & { index: Worksp
     sort={prefs ? prefs.sort : "manual"}
     canSort={Boolean(prefs)}
     setSort={(sort) => updatePrefs((values) => ({ ...values, sort }))}
+    hostChoice={hostChoice}
     toolbar={prefs ? { order: prefs.toolbarOrder, labels: prefs.toolbarLabels,
       setOrder: (toolbarOrder) => updatePrefs((values) => ({ ...values, toolbarOrder })),
       setLabels: (toolbarLabels) => updatePrefs((values) => ({ ...values, toolbarLabels })) } : undefined}
@@ -176,11 +191,12 @@ export function OrganizerSidebar(props: PluginSidebarViewProps & { index: Worksp
     displayError={device.status === "invalid" || device.status === "error" ? device.error : device.saveError} />;
 }
 
-function WorkspaceTree({ theme, navigation, active, layout, settings, runtime, collapsed, toggleCollapsed, setCollapsed, canCollapse, sort, setSort, canSort, groupBy, setGroupBy, toolbar, stickyHeaders, displayError, index, icons, labelColors, card, openCardSettings, cardMode, remoteWorkspaces, openInBrowser }: PluginSidebarViewProps & {
+function WorkspaceTree({ theme, navigation, active, layout, settings, runtime, collapsed, toggleCollapsed, setCollapsed, canCollapse, sort, setSort, canSort, groupBy, setGroupBy, toolbar, hostChoice, stickyHeaders, displayError, index, icons, labelColors, card, openCardSettings, cardMode, remoteWorkspaces, openInBrowser }: PluginSidebarViewProps & {
   settings: ReadySettings; runtime: IndexEvent | null; collapsed: string[]; toggleCollapsed: (id: string) => void;
   setCollapsed: (ids: string[], collapse: boolean) => void;
   sort: SortMode; setSort: (sort: SortMode) => void; canSort: boolean; groupBy: GroupBy; setGroupBy: (groupBy: GroupBy) => void;
   toolbar?: { order: readonly string[]; labels: boolean; setOrder: (order: ToolbarChip[]) => void; setLabels: (labels: boolean) => void };
+  hostChoice?: { hosts: { id: string; label: string }[]; current: string | null; choose: (id: string) => void };
   stickyHeaders: boolean;
   canCollapse: boolean; displayError: string | null; index: WorkspaceIndex; icons?: ProjectIconStore; labelColors?: LabelColorStore; card: CardConfig; openCardSettings?: () => void;
   cardMode: { ready: boolean; value: CardMode; set: (mode: CardMode) => void }; remoteWorkspaces?: RemoteWorkspaces;
@@ -500,7 +516,7 @@ function WorkspaceTree({ theme, navigation, active, layout, settings, runtime, c
         value={value} revision={settings.revision} save={save} disabled={busy} onReload={() => void settings.reload()}
         sort={sort} onSortChange={setSort} sortDisabled={!canSort}
         groupBy={groupBy} onGroupByChange={setGroupBy} onNewGroup={busy ? undefined : () => { setGroupBy("groups"); setEditor({ kind: "group", parentId: null }); }}
-        view={cardMode} openCardSettings={openCardSettings} toolbar={toolbar}
+        view={cardMode} openCardSettings={openCardSettings} toolbar={toolbar} hostChoice={hostChoice}
         history={{ back: nav.back ? navTitles.get(nav.back.key) ?? "previous workspace" : null,
           forward: nav.forward ? navTitles.get(nav.forward.key) ?? "next workspace" : null, goBack: nav.goBack, goForward: nav.goForward,
           keys: historyKeys }}

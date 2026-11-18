@@ -87,9 +87,13 @@ export const preferencesSchema = z.object({ collapsed: z.array(z.string()).defau
   // Group headers stay at the top of the list while their workspaces scroll beneath them.
   stickyHeaders: z.boolean().catch(true).default(true),
   // In the desktop app, PR and issue links open as a Paseo browser tab in their workspace rather than the default browser.
-  linksInPaseo: z.boolean().catch(true).default(true) });
+  linksInPaseo: z.boolean().catch(true).default(true),
+  // The host whose groups the sidebar uses when several run the plugin; null means this computer's (see sidebarHostFor).
+  sidebarHost: z.string().nullable().catch(null).default(null) });
 // Choices kept on each device: collapsed groups, sort, grouping, title lines, the toolbar, sticky headers and links.
-export const preferences = defineSettings({ id: "preferences", scope: "device", version: 1, schema: preferencesSchema });
+// Version 2 added the picked sidebar host; version 1 documents gain the default.
+export const preferences = defineSettings({ id: "preferences", scope: "device", version: 2, schema: preferencesSchema,
+  migrate: (values) => preferencesSchema.parse(values) });
 
 export function workspaceKey(hostId: string, id: string): string { return JSON.stringify([hostId, id]); }
 export function emptyDetails(): WorkspaceDetails { return workspaceDetailsSchema.parse({}); }

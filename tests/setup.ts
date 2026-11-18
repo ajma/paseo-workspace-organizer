@@ -1,4 +1,5 @@
 import { afterEach } from "vitest";
 import { cleanup } from "@testing-library/react";
 import { resetWorkspaceHistory } from "../client/history";
-afterEach(() => { cleanup(); resetWorkspaceHistory(); });
+import { resetCopies } from "../client/sidebar-placement";
+afterEach(() => { cleanup(); resetWorkspaceHistory(); resetCopies(); });

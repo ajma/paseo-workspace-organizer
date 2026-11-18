@@ -23,9 +23,16 @@ export function localHostIds(registry: string | null): Set<string> {
   return ids;
 }
 
-// On a computer with a local host, only that host's copy shows the sidebar, so other hosts' groups never appear; a
-// copy waits until it knows its host. Without one (a phone, or the web away from the daemon), any copy offers it.
-export function showsSidebar({ hostId, localHosts }: { hostId: string | null; localHosts: ReadonlySet<string> }): boolean {
-  if (localHosts.size === 0) return true;
-  return hostId !== null && localHosts.has(hostId);
+// Whose copy shows the sidebar, from the hosts whose copies are running: the one picked on this device, else this
+// computer's, else (one host, or a phone) the first by id, the same every time. While this computer's copy or the
+// picked one may still be starting, another host's waits briefly; null means no copy shows it yet.
+export function sidebarHostFor({ chosen, localHosts, running, waited }: {
+  chosen: string | null; localHosts: ReadonlySet<string>; running: ReadonlySet<string>; waited: boolean;
+}): string | null {
+  if (chosen !== null && running.has(chosen)) return chosen;
+  const local = [...localHosts].sort().find((id) => running.has(id));
+  if (local) return local;
+  const first = [...running].sort()[0] ?? null;
+  const expectingAnother = chosen !== null || localHosts.size > 0;
+  return expectingAnother && !waited ? null : first;
 }

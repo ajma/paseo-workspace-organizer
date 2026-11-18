@@ -3,7 +3,8 @@ import { act, createEvent, fireEvent, render, screen, waitFor } from "@testing-l
 import { OrganizerSidebar } from "../client/sidebar";
 import { HINT_DELAY_MS } from "../client/hint";
 import { createProjectIconStore } from "../client/project-icons";
-import { archiveCalls, changeOrganization, failArchives, failRenames, getDocument, getOrganization, makeIndex, renameCalls, resetHost, setWorkspaces, theme, workspace } from "../preview/host";
+import { archiveCalls, changeOrganization, failArchives, failRenames, getDocument, getOrganization, makeIndex, renameCalls, resetHost, setHostLabels, setWorkspaces, theme, workspace } from "../preview/host";
+import { placeSidebar } from "../client/sidebar-placement";
 import { emptyDetails, workspaceKey } from "../shared/organization";
 
 beforeEach(resetHost);
@@ -100,6 +101,37 @@ it("keeps the rename open with the reason when renaming fails", async () => {
   await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("Host is offline"));
   expect((screen.getByRole("textbox", { name: "Workspace name" }) as HTMLInputElement).value).toBe("Brainstorm");
   expect(screen.getByRole("button", { name: /^Open Explore next ideas/ })).toBeTruthy();
+});
+
+it("offers Groups from in the ⋯ menu once several hosts run the plugin, and keeps the pick on this device", async () => {
+  localStorage.setItem("@paseo:daemon-registry", JSON.stringify([{ serverId: "local", connections: [{ id: "direct:localhost:6767", endpoint: "localhost:6767" }] }]));
+  setWorkspaces([workspace("notes", "Explore next ideas"), workspace("box-work", "Build box work", { hostId: "box" })]);
+  setHostLabels({ box: "Build box" });
+  show();
+  const openMore = () => fireEvent.click(screen.getByRole("button", { name: "More options" }));
+  openMore();
+  expect(screen.queryByText("Groups from")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "More options" }));
+  // Two hosts' copies are running in this window.
+  const copies = ["local", "box"].map((id) => {
+    let shown = 0;
+    const stop = placeSidebar({ hostId: () => id, subscribe: () => () => {}, localHosts: new Set(["local"]), initialChoice: null,
+      add: () => { shown++; return () => { shown--; }; } });
+    return { stop, shown: () => shown };
+  });
+  openMore();
+  expect(screen.getByText("Groups from")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Groups from This Mac (this computer)" }).getAttribute("aria-selected")).toBe("true");
+  fireEvent.click(screen.getByRole("button", { name: "Groups from Build box" }));
+  await waitFor(() => expect(getDocument("preferences").sidebarHost).toBe("box"));
+  expect(copies.map((copy) => copy.shown())).toEqual([0, 1]);
+  // Picking this computer again goes back to the default.
+  openMore();
+  fireEvent.click(screen.getByRole("button", { name: "Groups from This Mac (this computer)" }));
+  await waitFor(() => expect(getDocument("preferences").sidebarHost).toBeNull());
+  expect(copies.map((copy) => copy.shown())).toEqual([1, 0]);
+  copies.forEach((copy) => copy.stop());
+  localStorage.removeItem("@paseo:daemon-registry");
 });
 
 it("keeps an unsaved draft when another client changes the organization", async () => {

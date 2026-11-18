@@ -13,7 +13,7 @@ import { disposeProviderCatalogs } from "./client/agents";
 import { CardSettingsScreen } from "./client/card-settings";
 import { contributeCelebration } from "./client/celebration/contribute";
 import { placeSidebar } from "./client/sidebar-placement";
-import { readLocalHostIds } from "./client/web";
+import { readLocalHostIds, readStoredSidebarHost } from "./client/web";
 
 // Opens a workspace for Command Center results and merge celebrations. Without a host it opens on this screen's host.
 function JumpToWorkspace({ navigation, params, theme, host }: PluginScreenProps) {
@@ -52,9 +52,9 @@ export default function contribute(client: PluginClientContext) {
   const removeScreen = client.addScreen({ id: "jump", title: "Open workspace", Component: JumpToWorkspace });
   const removeLinkScreen = client.addScreen({ id: "open-link", title: "Open link", Component: OpenLinkInBrowser });
   // With the plugin on several hosts, Paseo shows one copy's sidebar whatever its host, and each copy has its own host's
-  // groups; so only the copy on this computer's host offers it, and other hosts' groups are never shown.
+  // groups; so the copies agree on one: the only host running it, else this computer's or the one picked in Groups from.
   const removeSidebar = placeSidebar({ hostId: () => index.getSnapshot()?.hostId ?? null, subscribe: index.subscribe,
-    localHosts: readLocalHostIds(), add: () => client.addSidebarView({
+    localHosts: readLocalHostIds(), initialChoice: readStoredSidebarHost(), add: () => client.addSidebarView({
     id: "organized-workspaces", title: "Workspace organizer",
     description: "Nested custom groups with multiline notes, tags, PRs and issues",
     Component: (props) => <OrganizerSidebar {...props} index={index} icons={icons} labelColors={labelColors} remoteWorkspaces={remoteWorkspaces}
