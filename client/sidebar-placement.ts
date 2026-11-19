@@ -4,7 +4,9 @@
 import { useSyncExternalStore } from "react";
 import { sidebarHostFor } from "../shared/sidebar-placement";
 
-const REGISTRY_KEY = "__workspaceOrganizerCopies";
+// Versioned, and checked before use: copies on different hosts may run different versions of the plugin, and a
+// window keeps globalThis across plugin reloads, so a record in another shape may already be here.
+const REGISTRY_KEY = "__workspaceOrganizerCopies.v2";
 // Long enough for this computer's daemon to report its host before another host's copy steps in.
 export const LOCAL_COPY_WAIT_MS = 2000;
 
@@ -14,8 +16,8 @@ type Registry = {
 };
 
 function registry(): Registry {
-  const existing = Reflect.get(globalThis, REGISTRY_KEY) as Registry | undefined;
-  if (existing) return existing;
+  const existing = Reflect.get(globalThis, REGISTRY_KEY) as Partial<Registry> | undefined;
+  if (existing && existing.copies instanceof Map && existing.listeners instanceof Set && typeof existing.version === "number") return existing as Registry;
   const created: Registry = { copies: new Map(), chosen: undefined, waited: false, listeners: new Set(), version: 0 };
   Reflect.set(globalThis, REGISTRY_KEY, created);
   return created;
@@ -23,21 +25,26 @@ function registry(): Registry {
 function changed(state: Registry) { state.version++; state.listeners.forEach((listener) => listener()); }
 
 export function runningHosts(): Set<string> {
-  return new Set([...registry().copies.values()].filter((id): id is string => id !== null));
+  try { return new Set([...registry().copies.values()].filter((id): id is string => id !== null)); } catch { return new Set(); }
 }
 
 // The host picked on this device (null: this computer's). Every copy moves its sidebar accordingly.
 export function chooseSidebarHost(hostId: string | null) {
-  const state = registry();
-  if (state.chosen === hostId) return;
-  state.chosen = hostId;
-  changed(state);
+  try {
+    const state = registry();
+    if (state.chosen === hostId) return;
+    state.chosen = hostId;
+    changed(state);
+  } catch { /* Without the shared record there's nothing to coordinate. */ }
 }
 
 // For the ⋯ menu: the hosts whose copies run, and the pick.
+const NO_HOSTS = { running: [] as string[], chosen: null };
 export function useSidebarHosts(): { running: string[]; chosen: string | null } {
-  const state = registry();
-  return useSyncExternalStore((listener) => { state.listeners.add(listener); return () => { state.listeners.delete(listener); }; }, () => {
+  let state: Registry | null = null;
+  try { state = registry(); } catch { /* The menu then offers no choice. */ }
+  return useSyncExternalStore((listener) => { state?.listeners.add(listener); return () => { state?.listeners.delete(listener); }; }, () => {
+    if (!state) return NO_HOSTS;
     if (state.snapshot?.version !== state.version) state.snapshot = { version: state.version, running: [...runningHosts()].sort(), chosen: state.chosen ?? null };
     return state.snapshot;
   });
@@ -48,7 +55,9 @@ export function placeSidebar({ hostId, subscribe, localHosts, initialChoice, add
   // The pick saved on this device, read before any sidebar has drawn.
   initialChoice: string | null; add: () => () => void; waitMs?: number;
 }): () => void {
-  const state = registry();
+  // Coordinating is a nicety: if it fails, offer the sidebar as before rather than stop the plugin from starting.
+  let state: Registry;
+  try { state = registry(); } catch { return add(); }
   if (state.chosen === undefined) state.chosen = initialChoice;
   if (!state.timer && !state.waited) state.timer = setTimeout(() => { state.waited = true; changed(state); }, waitMs);
   const me = Symbol("copy");
@@ -78,7 +87,9 @@ export function placeSidebar({ hostId, subscribe, localHosts, initialChoice, add
 
 // Tests start each case with no copies.
 export function resetCopies() {
-  const state = Reflect.get(globalThis, REGISTRY_KEY) as Registry | undefined;
-  if (state?.timer) clearTimeout(state.timer);
+  try {
+    const state = Reflect.get(globalThis, REGISTRY_KEY) as Registry | undefined;
+    if (state?.timer) clearTimeout(state.timer);
+  } catch { /* A broken record is simply removed. */ }
   Reflect.deleteProperty(globalThis, REGISTRY_KEY);
 }

@@ -89,3 +89,26 @@ it("keeps existing device preferences when adding the picked host (version 1 to 
   const migrated = await preferences.migrate!({ collapsed: ["later"], sort: "name", stickyHeaders: false }, 1) as Record<string, unknown>;
   expect(migrated).toMatchObject({ collapsed: ["later"], sort: "name", stickyHeaders: false, sidebarHost: null });
 });
+
+it("ignores a shared record left by another version of the plugin in this window, rather than failing to start", () => {
+  // An earlier version kept a differently shaped record under the old name; a copy on another host may still run it.
+  Reflect.set(globalThis, "__workspaceOrganizerCopies", { local: new Set(), listeners: new Set() });
+  const mac = copy(new Set(["srv_mac"]));
+  mac.learn("srv_mac");
+  expect(mac.shown()).toBe(1);
+  mac.stop();
+  Reflect.deleteProperty(globalThis, "__workspaceOrganizerCopies");
+});
+
+it("still adds the sidebar if coordinating with other copies fails", () => {
+  const broken = { get copies(): never { throw new Error("broken"); } };
+  for (const key of Reflect.ownKeys(globalThis).filter((key) => typeof key === "string" && key.startsWith("__workspaceOrganizerCopies"))) {
+    Reflect.set(globalThis, key, broken);
+  }
+  Reflect.set(globalThis, "__workspaceOrganizerCopies.v2", broken);
+  let shown = 0;
+  expect(() => placeSidebar({ hostId: () => "srv_mac", subscribe: () => () => {}, localHosts: new Set(["srv_mac"]), initialChoice: null,
+    add: () => { shown++; return () => { shown--; }; } })).not.toThrow();
+  expect(shown).toBe(1);
+  Reflect.deleteProperty(globalThis, "__workspaceOrganizerCopies.v2");
+});
