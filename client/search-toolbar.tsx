@@ -228,7 +228,7 @@ export function SearchToolbar({ theme, criteria, onChange, tags, hosts, projects
         {toolbar ? <MenuChoice theme={theme} label="Show button labels" selected={labelsOn}
           onPress={() => { toolbar.setLabels(!labelsOn); setMenu(null); }} /> : null}
         {toolbar && openCardSettings ? <View style={{ height: 1, backgroundColor: theme.colors.border, marginVertical: 4 }} /> : null}
-        {openCardSettings ? <MenuChoice theme={theme} label="Plugin settings…" accessibilityLabel="Plugin settings" icon="SlidersHorizontal"
+        {openCardSettings ? <MenuChoice theme={theme} label="Plugin settings…" accessibilityLabel="Plugin settings" icon="Settings"
           onPress={() => { setMenu(null); openCardSettings(); }} /> : null}
       </View>}</Dropdown>
       <Dropdown theme={theme} open={menu === "sort"} label="Sort order" align="right">{() => <View style={{ padding: 4 }}>

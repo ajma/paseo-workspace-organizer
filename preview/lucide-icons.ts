@@ -1,6 +1,7 @@
 // Lucide icons (lucide-react-native v1.50.0, ISC license, https://lucide.dev) as drawn by Paseo, so the preview and its
 // screenshots show the real icons. Preview-only: Paseo supplies the real <Icon> to the plugin at runtime.
 export const previewIcons: Record<string, [string, Record<string, string>][]> = {
+  "settings": [["path",{"d":"M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"}],["circle",{"cx":"12","cy":"12","r":"3"}]],
   "search": [["path",{"d":"m21 21-4.34-4.34"}],["circle",{"cx":"11","cy":"11","r":"8"}]],
   "list-filter": [["path",{"d":"M2 5h20"}],["path",{"d":"M6 12h12"}],["path",{"d":"M9 19h6"}]],
   "chevron-down": [["path",{"d":"m6 9 6 6 6-6"}]],
