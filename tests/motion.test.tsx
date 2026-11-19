@@ -3,6 +3,10 @@ import { detailExtras, fieldItems } from "../client/card-fields";
 import { sampleCard } from "../client/card-sample";
 import { showFloatingPanel } from "../client/web";
 import { theme } from "../preview/host";
+import { act, render, screen } from "@testing-library/react";
+import { AccessibilityInfo, Animated, Text } from "react-native";
+import { WorkspaceCardView } from "../client/card";
+import { cardFields } from "../shared/cards";
 
 afterEach(() => { vi.unstubAllGlobals(); Reflect.deleteProperty(Element.prototype, "animate"); });
 
@@ -39,4 +43,30 @@ it("keeps the panel still when the system asks for reduced motion", () => {
   const remove = panelWithSpinner();
   expect(animate).not.toHaveBeenCalled();
   remove();
+});
+
+it("moves every working row together: one shared loop per animation, started once and stopped with the last row", async () => {
+  // Motion on, as on most machines.
+  const reduceMotion = vi.spyOn(AccessibilityInfo, "isReduceMotionEnabled").mockResolvedValue(false);
+  const loop = vi.spyOn(Animated, "loop");
+  const card = (key: string) => <WorkspaceCardView key={key} theme={theme} model={sampleCard(Date.now())} fields={new Set(cardFields)} labelLimit="all"
+    titleLines="2" projectIcon={<Text>ICON</Text>} />;
+  const settle = () => act(async () => { await Promise.resolve(); });
+  const view = render(<>{card("a")}</>);
+  await settle();
+  const started = loop.mock.results.map((result) => result.value as { stop: () => void });
+  expect(started.length).toBeGreaterThan(0);
+  const stops = started.map((animation) => vi.spyOn(animation, "stop"));
+  // A second working row joins the first one's glow and pulse rather than starting its own, so they stay in step.
+  view.rerender(<>{card("a")}{card("b")}</>);
+  await settle();
+  expect(screen.getAllByTestId("working-glow")).toHaveLength(2);
+  expect(loop.mock.calls.length).toBe(started.length);
+  view.rerender(<>{card("a")}</>);
+  await settle();
+  expect(stops.every((stop) => stop.mock.calls.length === 0)).toBe(true);
+  view.unmount();
+  expect(stops.every((stop) => stop.mock.calls.length > 0)).toBe(true);
+  loop.mockRestore();
+  reduceMotion.mockRestore();
 });

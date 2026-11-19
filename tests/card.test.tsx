@@ -5,6 +5,7 @@ import { WorkspaceCardView, displayPath } from "../client/card";
 import { sampleCard } from "../client/card-sample";
 import { cardFields, cardPresets, type CardField } from "../shared/cards";
 import { theme } from "../preview/host";
+import { WORKING_GLOW } from "../client/motion";
 
 const draw = (fields: readonly CardField[], extra: Partial<Parameters<typeof WorkspaceCardView>[0]> = {}) =>
   render(<WorkspaceCardView theme={theme} model={sampleCard(Date.now())} fields={new Set(fields)} labelLimit="all" titleLines="2"
@@ -196,4 +197,23 @@ it("underlines a link while the pointer is on it, so it reads as clickable", () 
   expect(getComputedStyle(number).textDecorationLine || number.style.textDecorationLine).toContain("underline");
   fireEvent.pointerLeave(link, { pointerType: "mouse" });
   expect(getComputedStyle(number).textDecorationLine || number.style.textDecorationLine).not.toContain("underline");
+});
+
+it("tints the whole row of a working workspace, softly, and no other row", () => {
+  const view = draw(cardFields);
+  const glow = screen.getByTestId("working-glow");
+  expect(glow.closest('[data-testid="workspace-row"]')).toBeTruthy();
+  // Clicks pass through it, and it stays faint (jsdom reduces motion, so it holds its resting tint).
+  expect(getComputedStyle(glow).pointerEvents).toBe("none");
+  expect(Number(glow.style.opacity)).toBeGreaterThan(0);
+  // Subtle in light themes (at most a 5% wash), stronger on dark surfaces where the same wash barely shows, and a slow breath.
+  expect(WORKING_GLOW.light.high).toBeLessThanOrEqual(0.05);
+  expect(WORKING_GLOW.dark.high).toBeGreaterThanOrEqual(2 * WORKING_GLOW.light.high);
+  expect(WORKING_GLOW.dark.high).toBeLessThanOrEqual(0.12);
+  for (const range of [WORKING_GLOW.light, WORKING_GLOW.dark]) expect(range.low).toBeLessThan(range.high);
+  expect(WORKING_GLOW.cycleMs).toBeGreaterThanOrEqual(2500);
+  view.unmount();
+  render(<WorkspaceCardView theme={theme} model={{ ...sampleCard(Date.now()), indicator: "done", indicatorLabel: "Done" }} fields={new Set(cardFields)}
+    labelLimit="all" titleLines="2" projectIcon={<Text>ICON</Text>} />);
+  expect(screen.queryByTestId("working-glow")).toBeNull();
 });

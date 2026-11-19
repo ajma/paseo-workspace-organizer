@@ -41,7 +41,7 @@ When you run a dozen agents at once, a flat list of workspaces stops working. **
 - **Rich workspace rows** show agent and model, project, branch with git status, labels in their Paseo colors, linked PRs and issues with CI results, subagents, run timer and last activity.
 - **Simple, Full or Custom views.** Pick exactly which fields appear.
 - **Hover for the whole story.** Rest on a row for half a second and a details panel lists every field in full, with clickable links.
-- **Live status.** Running workspaces pulse, CI checks spin while they run, and the open workspace is always marked.
+- **Live status.** Working rows glow softly and their status dot pulses, CI checks spin while they run, and the open workspace is always marked.
 
 ### 🔎 Find anything fast
 

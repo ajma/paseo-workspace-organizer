@@ -1,5 +1,6 @@
 // Shared motion helpers. Everything here respects the system's reduce-motion setting and stays still when it is on.
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { breath } from "../shared/breath";
 import { AccessibilityInfo, Animated, Easing, Platform } from "react-native";
 
 // React Native Web stops animations through Metro's `global`. Paseo's own bundle defines it; make sure it exists so
@@ -17,34 +18,64 @@ export function useReduceMotion(): boolean {
   return reduce;
 }
 
-// Repeats a 0 → 1 animation for as long as `on` is true; holds at `rest` otherwise.
-function useLoop(on: boolean, duration: number, rest: number, easing: (value: number) => number) {
+// Repeating animations are shared per kind, so every row's glow, pulse or spinner moves in step instead of drifting
+// apart by when each row appeared. The first user starts a kind's loop and the last one stops it. Each value starts at
+// 0, which a loop resets to between cycles. Off, or with reduced motion, a user holds still at `rest`.
+type SharedLoop = { value: Animated.Value; users: number; loop: Animated.CompositeAnimation | null };
+const sharedLoops = new Map<string, SharedLoop>();
+function useSharedLoop(kind: string, on: boolean, duration: number, rest: number, easing: (value: number) => number) {
   const reduceMotion = useReduceMotion();
-  const value = useRef(new Animated.Value(rest)).current;
+  const still = useRef(new Animated.Value(rest)).current;
+  let shared = sharedLoops.get(kind);
+  if (!shared) { shared = { value: new Animated.Value(0), users: 0, loop: null }; sharedLoops.set(kind, shared); }
+  const entry = shared;
   const running = on && !reduceMotion;
   useEffect(() => {
-    if (!running) { value.setValue(rest); return; }
-    value.setValue(0);
-    const loop = Animated.loop(Animated.timing(value, { toValue: 1, duration, easing, useNativeDriver: false }));
-    loop.start();
-    return () => loop.stop();
+    if (!running) return;
+    entry.users++;
+    if (!entry.loop) {
+      entry.value.setValue(0);
+      entry.loop = Animated.loop(Animated.timing(entry.value, { toValue: 1, duration, easing, useNativeDriver: false }));
+      entry.loop.start();
+    }
+    return () => {
+      entry.users--;
+      if (entry.users === 0 && entry.loop) { entry.loop.stop(); entry.loop = null; }
+    };
   }, [running]);
-  return value;
+  return running ? entry.value : still;
 }
 
 // Turns its content continuously, like a loading spinner.
 export function Spin({ on = true, children }: { on?: boolean; children: ReactNode }) {
-  const turn = useLoop(on, 1000, 0, Easing.linear);
+  const turn = useSharedLoop("spin", on, 1000, 0, Easing.linear);
   const rotate = turn.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] });
   return <Animated.View style={{ transform: [{ rotate }] }}>{children}</Animated.View>;
 }
 
 // Fades its content gently in and out, like a heartbeat.
 export function Pulse({ on = true, children }: { on?: boolean; children: ReactNode }) {
-  const phase = useLoop(on, 1400, 0, Easing.inOut(Easing.sin));
-  const opacity = phase.interpolate({ inputRange: [0, 0.5, 1], outputRange: [1, 0.35, 1] });
-  const scale = phase.interpolate({ inputRange: [0, 0.5, 1], outputRange: [1, 0.8, 1] });
+  // Steady time shaped by the breathing curve: it dims and shrinks, then returns, evenly.
+  const phase = useSharedLoop("pulse", on, 1400, 0, Easing.linear);
+  const opacity = phase.interpolate({ inputRange: CURVE_STEPS, outputRange: CURVE_STEPS.map((t) => 1 - 0.65 * breath(t)) });
+  const scale = phase.interpolate({ inputRange: CURVE_STEPS, outputRange: CURVE_STEPS.map((t) => 1 - 0.2 * breath(t)) });
   return <Animated.View style={{ opacity, transform: [{ scale }] }}>{children}</Animated.View>;
+}
+
+// Kept subtle, but the same wash reads far weaker over a dark surface than a light one, so dark themes get more:
+// 1% to 5% on light, 3% to 12% on dark, over a slow three-second breath.
+export const WORKING_GLOW = { light: { low: 0.01, high: 0.05 }, dark: { low: 0.03, high: 0.12 }, cycleMs: 3000 };
+// Points along a cycle at which the breathing curve is sampled for Animated's interpolation.
+const CURVE_STEPS = Array.from({ length: 25 }, (_, i) => i / 24);
+// A faint wash of `color` over its parent that slowly brightens and fades, for a row whose workspace is working. With
+// reduced motion it holds a steady faint tint, so the row still reads as working.
+export function Glow({ color, radius, dark }: { color: string; radius: number; dark: boolean }) {
+  const range = dark ? WORKING_GLOW.dark : WORKING_GLOW.light;
+  // Time runs steadily; the breathing curve shapes it into an even rise and fall.
+  const phase = useSharedLoop("glow", true, WORKING_GLOW.cycleMs, 0.25, Easing.linear);
+  const opacity = phase.interpolate({ inputRange: CURVE_STEPS, outputRange: CURVE_STEPS.map((t) => range.low + (range.high - range.low) * breath(t)) });
+  return <Animated.View testID="working-glow" pointerEvents="none"
+    style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, borderRadius: radius, backgroundColor: color, opacity, zIndex: 15 }} />;
 }
 
 export const LEAVE_MS = 220;

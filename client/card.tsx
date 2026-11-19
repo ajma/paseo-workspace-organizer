@@ -12,7 +12,7 @@ import { pascal } from "./lucide";
 import { CardHoverProvider, Tip, useCardHover, useCardHoverControls } from "./tooltip";
 import { useDragging } from "./drag";
 import { ARCHIVE_CONFIRM_MS } from "../shared/archive";
-import { Pulse, Spin } from "./motion";
+import { Glow, Pulse, Spin } from "./motion";
 import { font } from "./typography";
 import { canFloat, showFloatingPanel, type PanelLine } from "./web";
 
@@ -265,6 +265,8 @@ export function WorkspaceCardView({ theme, model, fields, labelLimit, titleLines
       </View>;
     })() : null}
     {/* The open workspace: an accent bar along its left edge, with a bold title and a raised background. */}
+    {/* Over the content rather than under it, so the hover buttons' solid backdrop takes the tint too; below the menu. */}
+    {running ? <Glow color={color} radius={8} dark={isDarkSurface(theme.colors.surface0)} /> : null}
     {active ? <View testID="active-marker" pointerEvents="none" style={{ position: "absolute", left: 0, top: 6, bottom: 6, width: 3, borderRadius: 2,
       backgroundColor: theme.colors.accent }} /> : null}
     {/* Where a dragged workspace would land: a line above or below this row. */}
