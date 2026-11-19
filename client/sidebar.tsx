@@ -16,7 +16,7 @@ import { exactTag, facetKey, facetKeys, filtersSchema, hasFilters, matchesFilter
 import { SearchToolbar } from "./search-toolbar";
 import { useQueuedSave } from "./queued-save";
 import { useBracketShortcuts } from "./paseo-shortcuts";
-import { chooseSidebarHost, useSidebarHosts } from "./sidebar-placement";
+import { chooseSidebarHost, initializeSidebarHost, useSidebarHosts } from "./sidebar-placement";
 import { sidebarHostFor } from "../shared/sidebar-placement";
 import { Dropdown } from "./dropdown";
 import { githubStatusLabel, type GithubStatus } from "../shared/github-status";
@@ -149,13 +149,21 @@ export function OrganizerSidebar(props: PluginSidebarViewProps & { index: Worksp
   const sidebarHosts = useSidebarHosts();
   const allHosts = useHosts();
   const savedHost = prefs ? prefs.sidebarHost : undefined;
-  useEffect(() => { if (savedHost !== undefined) chooseSidebarHost(savedHost); }, [savedHost]);
+  // Switching hands the sidebar to another copy and removes this one, so it only happens once the pick is saved: this
+  // effect runs after the preference queue has sent it. A sidebar's first value only fills in a missing pick.
+  const seenHost = useRef<string | null | undefined>(undefined);
+  useEffect(() => {
+    if (savedHost === undefined) return;
+    if (seenHost.current === undefined) initializeSidebarHost(savedHost);
+    else if (seenHost.current !== savedHost) chooseSidebarHost(savedHost);
+    seenHost.current = savedHost;
+  }, [savedHost]);
   const localHosts = readLocalHostIds();
   const hostChoice = sidebarHosts.running.length > 1 ? {
     hosts: sidebarHosts.running.map((id) => ({ id, label: `${allHosts.find((host) => host.serverId === id)?.label ?? id}${localHosts.has(id) ? " (this computer)" : ""}` })),
     current: sidebarHostFor({ chosen: sidebarHosts.chosen, localHosts, running: new Set(sidebarHosts.running), waited: true }),
     // This computer's host is the default, so picking it clears the pick.
-    choose: (id: string) => { const sidebarHost = localHosts.has(id) ? null : id; updatePrefs((values) => ({ ...values, sidebarHost })); chooseSidebarHost(sidebarHost); },
+    choose: (id: string) => { const sidebarHost = localHosts.has(id) ? null : id; updatePrefs((values) => ({ ...values, sidebarHost })); },
   } : undefined;
   useArchiveShortcut(props.active.workspace);
   const cardSettings = useSettings(cards);

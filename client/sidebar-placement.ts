@@ -38,6 +38,17 @@ export function chooseSidebarHost(hostId: string | null) {
   } catch { /* Without the shared record there's nothing to coordinate. */ }
 }
 
+// A drawn sidebar's saved pick, for when none was known at startup (a phone, which can't read it early). It never
+// overrides a pick already made: a sidebar that just took over may still be reading the value from before the switch.
+export function initializeSidebarHost(hostId: string | null) {
+  try {
+    const state = registry();
+    if (state.chosen !== undefined) return;
+    state.chosen = hostId;
+    changed(state);
+  } catch { /* Without the shared record there's nothing to coordinate. */ }
+}
+
 // For the ⋯ menu: the hosts whose copies run, and the pick.
 const NO_HOSTS = { running: [] as string[], chosen: null };
 export function useSidebarHosts(): { running: string[]; chosen: string | null } {
@@ -58,7 +69,8 @@ export function placeSidebar({ hostId, subscribe, localHosts, initialChoice, add
   // Coordinating is a nicety: if it fails, offer the sidebar as before rather than stop the plugin from starting.
   let state: Registry;
   try { state = registry(); } catch { return add(); }
-  if (state.chosen === undefined) state.chosen = initialChoice;
+  // Unread or unset leaves the pick unknown, so the first drawn sidebar can supply it.
+  if (state.chosen === undefined && initialChoice !== null) state.chosen = initialChoice;
   if (!state.timer && !state.waited) state.timer = setTimeout(() => { state.waited = true; changed(state); }, waitMs);
   const me = Symbol("copy");
   state.copies.set(me, null);

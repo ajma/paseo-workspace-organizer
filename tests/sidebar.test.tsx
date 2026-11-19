@@ -1,6 +1,8 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import { act, createEvent, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { OrganizerSidebar } from "../client/sidebar";
+import { useEffect, useState } from "react";
+import { View } from "react-native";
 import { HINT_DELAY_MS } from "../client/hint";
 import { createProjectIconStore } from "../client/project-icons";
 import { archiveCalls, changeOrganization, failArchives, failRenames, getDocument, getOrganization, makeIndex, renameCalls, resetHost, setHostLabels, setWorkspaces, theme, workspace } from "../preview/host";
@@ -131,6 +133,34 @@ it("offers Groups from in the ⋯ menu once several hosts run the plugin, and ke
   await waitFor(() => expect(getDocument("preferences").sidebarHost).toBeNull());
   expect(copies.map((copy) => copy.shown())).toEqual([1, 0]);
   copies.forEach((copy) => copy.stop());
+  localStorage.removeItem("@paseo:daemon-registry");
+});
+
+it("switches the sidebar to the picked host's copy and keeps it there, as Paseo swaps the copies' sidebars", async () => {
+  localStorage.setItem("@paseo:daemon-registry", JSON.stringify([{ serverId: "local", connections: [{ id: "direct:localhost:6767", endpoint: "localhost:6767" }] }]));
+  setWorkspaces([workspace("notes", "Explore next ideas"), workspace("box-work", "Build box work", { hostId: "box" })]);
+  setHostLabels({ box: "Build box" });
+  // Like Paseo: each host's copy offers its own sidebar, and only the offered one is drawn.
+  function Paseo() {
+    const [owner, setOwner] = useState<string | null>(null);
+    useEffect(() => {
+      const stops = ["local", "box"].map((id) => placeSidebar({ hostId: () => id, subscribe: () => () => {}, localHosts: new Set(["local"]),
+        initialChoice: null, add: () => { setOwner(id); return () => setOwner((current) => (current === id ? null : current)); } }));
+      return () => stops.forEach((stop) => stop());
+    }, []);
+    return owner ? <View testID={`sidebar-of-${owner}`}><OrganizerSidebar key={owner} theme={theme} layout={{ compact: true, platform: "web" }}
+      active={{ workspace: null, agent: null }} navigation={{ openWorkspace: vi.fn(), openAgent: vi.fn(), openTerminal: vi.fn(), openProject: vi.fn() }}
+      dismiss={vi.fn()} index={makeIndex()} /></View> : null;
+  }
+  render(<Paseo />);
+  await waitFor(() => expect(screen.getByTestId("sidebar-of-local")).toBeTruthy());
+  fireEvent.click(screen.getByRole("button", { name: "More options" }));
+  fireEvent.click(screen.getByRole("button", { name: "Groups from Build box" }));
+  await waitFor(() => expect(getDocument("preferences").sidebarHost).toBe("box"));
+  await waitFor(() => expect(screen.getByTestId("sidebar-of-box")).toBeTruthy());
+  // It stays on the picked host rather than bouncing back.
+  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 50)); });
+  expect(screen.getByTestId("sidebar-of-box")).toBeTruthy();
   localStorage.removeItem("@paseo:daemon-registry");
 });
 
