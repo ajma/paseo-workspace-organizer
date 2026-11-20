@@ -23,6 +23,8 @@ const mono = Platform.select({ ios: "Menlo", android: "monospace", default: "ui-
 const metaFont = font.sm;
 const metaIcon = font.sm;
 const separatorGutter = 14;
+// The lines under a row's title start this far in from the icon's left edge.
+const LINE_INSET = 2;
 
 // What the hover buttons and ⋯ menu can do for a live workspace. The settings preview passes none.
 export type CardActions = {
@@ -183,8 +185,9 @@ export function WorkspaceCardView({ theme, model, fields, labelLimit, titleLines
           accessibilityLabel={`Open ${model.title}${model.indicatorLabel ? `, ${model.indicatorLabel}` : ""}`}>
           {/* The icon sits inline at the start of the title, so a title on two lines wraps under it. */}
           <Text numberOfLines={titleLines === "all" ? undefined : Number(titleLines)}
-            style={{ color: theme.colors.foreground, fontSize: font.md, lineHeight: 20, fontWeight: active ? "600" : "400" }}>
-            <View style={{ width: 18, height: 20, marginRight: 5, alignItems: "center", justifyContent: "center", verticalAlign: "top" } as object}>
+            // Lines after the first sit 2px in from the icon's edge; the icon is pulled back so the first line doesn't move.
+            style={{ color: theme.colors.foreground, fontSize: font.md, lineHeight: 20, fontWeight: active ? "600" : "400", paddingLeft: LINE_INSET }}>
+            <View style={{ width: 18, height: 20, marginLeft: -LINE_INSET, marginRight: 5, alignItems: "center", justifyContent: "center", verticalAlign: "top" } as object}>
               {leading}
             </View>{model.title}</Text>
         </Tip>
@@ -212,7 +215,7 @@ export function WorkspaceCardView({ theme, model, fields, labelLimit, titleLines
     </View>
       {/* Each field carries its "·" in a left gutter. The line is shifted left by one gutter and clipped, so the "·"
           before the first field of every wrapped line falls outside it and only separators between fields show. */}
-      {items.length ? <View style={{ overflow: "hidden", zIndex: 4 }}><View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center",
+      {items.length ? <View style={{ overflow: "hidden", zIndex: 4, marginLeft: LINE_INSET }}><View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center",
         rowGap: 2, marginLeft: -separatorGutter }}>
         {items.map((item) => <View key={item.key} style={{ flexDirection: "row", alignItems: "center", flexShrink: 1, minWidth: 0, maxWidth: "100%",
           paddingLeft: separatorGutter }}>
@@ -223,7 +226,7 @@ export function WorkspaceCardView({ theme, model, fields, labelLimit, titleLines
             : <Tip onPress={onOpen}><FieldView item={item} /></Tip>}
         </View>)}
       </View></View> : null}
-      {labels.shown.length ? <View accessibilityLabel="Labels" style={{ flexDirection: "row", flexWrap: "wrap", gap: 5, paddingTop: 1, zIndex: 3 }}>
+      {labels.shown.length ? <View accessibilityLabel="Labels" style={{ flexDirection: "row", flexWrap: "wrap", gap: 5, paddingTop: 1, zIndex: 3, marginLeft: LINE_INSET }}>
         {labels.shown.map((label) => <Tip key={label.name} onPress={onOpen}><LabelChip theme={theme} label={label} onRaised={active} /></Tip>)}
         {labels.hidden ? <Tip onPress={onOpen}>
           <View accessibilityLabel={`${labels.hidden} more labels`} style={{ paddingHorizontal: 7, paddingVertical: 1, borderRadius: 999, backgroundColor: theme.colors.surface2 }}>
@@ -232,7 +235,7 @@ export function WorkspaceCardView({ theme, model, fields, labelLimit, titleLines
         </Tip> : null}
       </View> : null}
       {has("notes") && model.notes ? <Tip layer={2} onPress={onOpen}>
-        <Text numberOfLines={3} style={{ color: muted, fontSize: metaFont, lineHeight: 18 }}>{model.notes}</Text>
+        <Text numberOfLines={3} style={{ color: muted, fontSize: metaFont, lineHeight: 18, paddingLeft: LINE_INSET }}>{model.notes}</Text>
       </Tip> : null}
       {children}
     {/* The menu and its items count as the row for hover, so moving onto them keeps the menu open. */}
