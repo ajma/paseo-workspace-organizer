@@ -1,5 +1,5 @@
 import { beforeEach, expect, it, vi } from "vitest";
-import { act, createEvent, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, createEvent, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { OrganizerSidebar } from "../client/sidebar";
 import { useEffect, useState } from "react";
 import { View } from "react-native";
@@ -70,7 +70,13 @@ it("moves a workspace to a custom group and saves multiline notes, tags and mult
   fireEvent.click(screen.getByRole("radio", { name: "In progress / Interface" }));
   fireEvent.change(screen.getByRole("textbox", { name: "Subtitle" }), { target: { value: "First line\nSecond line" } });
   fireEvent.change(screen.getByRole("textbox", { name: "Tags (comma separated)" }), { target: { value: "alpha, beta" } });
-  fireEvent.change(screen.getByRole("textbox", { name: "GitHub links (one URL or #number per line)" }), { target: { value: "https://github.com/o/r/pull/1\nhttps://github.com/o/r/pull/2\nhttps://github.com/o/r/issues/3" } });
+  // Several links can be added at once, separated by spaces.
+  fireEvent.change(screen.getByRole("textbox", { name: "Add GitHub link" }), { target: { value: "https://github.com/o/r/pull/1 https://github.com/o/r/pull/2" } });
+  fireEvent.click(screen.getByRole("button", { name: "Add link" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "Remove PR o/r#2" })).toBeTruthy());
+  expect((screen.getByRole("textbox", { name: "Add GitHub link" }) as HTMLInputElement).value).toBe("");
+  // Text left in the box is added on Save rather than lost.
+  fireEvent.change(screen.getByRole("textbox", { name: "Add GitHub link" }), { target: { value: "https://github.com/o/r/issues/3" } });
   fireEvent.click(screen.getByRole("button", { name: "Save workspace" }));
   await waitFor(() => expect(getOrganization().workspaces[workspaceKey("local", "notes")]).toMatchObject({ groupId: "interface", subtitle: "First line\nSecond line", tags: ["alpha", "beta"], links: expect.any(Array) }));
   expect(getOrganization().workspaces[workspaceKey("local", "notes")].links).toHaveLength(3);
@@ -171,15 +177,40 @@ it("looks a bare PR or issue number up in the workspace's repository when saving
   render(<OrganizerSidebar theme={theme} layout={{ compact: true, platform: "web" }} active={{ workspace: null, agent: null }}
     navigation={{ openWorkspace: vi.fn(), openAgent: vi.fn(), openTerminal: vi.fn(), openProject: vi.fn() }} dismiss={vi.fn()} index={makeIndex()} resolveLinks={resolveLinks} />);
   rowMenu("Explore next ideas", "Edit details");
-  const links = () => screen.getByRole("textbox", { name: "GitHub links (one URL or #number per line)" }) as HTMLTextAreaElement;
-  fireEvent.change(links(), { target: { value: "#77" } });
-  fireEvent.click(screen.getByRole("button", { name: "Save workspace" }));
+  const add = () => screen.getByRole("textbox", { name: "Add GitHub link" }) as HTMLInputElement;
+  fireEvent.change(add(), { target: { value: "#77" } });
+  fireEvent.click(screen.getByRole("button", { name: "Add link" }));
   await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("#77 wasn't found"));
-  expect(links().value).toBe("#77");
-  fireEvent.change(links(), { target: { value: "#42" } });
+  expect(add().value).toBe("#77");
+  fireEvent.change(add(), { target: { value: "#42" } });
+  fireEvent.click(screen.getByRole("button", { name: "Add link" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "Remove PR getpaseo/paseo#42" })).toBeTruthy());
   fireEvent.click(screen.getByRole("button", { name: "Save workspace" }));
   await waitFor(() => expect(getOrganization().workspaces[workspaceKey("local", "notes")].links.map((link: { url: string }) => link.url)).toEqual(["https://github.com/getpaseo/paseo/pull/42"]));
   expect(resolveLinks).toHaveBeenLastCalledWith(expect.objectContaining({ hostId: "local", workspaceId: "notes", numbers: [42] }));
+});
+
+it("lists a workspace's links with a remove button each, and shows ones found automatically without one", async () => {
+  const index = makeIndex({ entries: [{ id: "sidebar", branch: "feature/sidebar-organizer", labels: [], links: [
+    { repository: "getpaseo/paseo", number: 500, kind: "pr", url: "https://github.com/getpaseo/paseo/pull/500" }] }] });
+  render(<OrganizerSidebar theme={theme} layout={{ compact: true, platform: "web" }} active={{ workspace: null, agent: null }}
+    navigation={{ openWorkspace: vi.fn(), openAgent: vi.fn(), openTerminal: vi.fn(), openProject: vi.fn() }} dismiss={vi.fn()} index={index} />);
+  rowMenu("Restructure workspace navigation", "Edit details");
+  const list = screen.getByLabelText("Linked PRs and issues");
+  expect(within(list).getAllByRole("button", { name: /^Remove / }).map((button) => button.getAttribute("aria-label"))).toEqual([
+    "Remove PR getpaseo/paseo#412", "Remove PR getpaseo/paseo#427", "Remove issue getpaseo/paseo#385"]);
+  // Each shows the row's PR or issue icon, not a word, before its repository and number.
+  expect(within(list).getAllByText(/^getpaseo\/paseo#\d+$/).map((item) => item.textContent)).toEqual([
+    "getpaseo/paseo#412", "getpaseo/paseo#427", "getpaseo/paseo#385", "getpaseo/paseo#500"]);
+  expect(within(list).getAllByLabelText(/^(Pull request|Issue)$/).map((icon) => icon.getAttribute("aria-label"))).toEqual([
+    "Pull request", "Pull request", "Issue", "Pull request"]);
+  // Found automatically (Paseo's detected PR): listed, but not removable here.
+  expect(within(list).getByText(/getpaseo\/paseo#500/)).toBeTruthy();
+  expect(within(list).queryByRole("button", { name: "Remove PR getpaseo/paseo#500" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Remove PR getpaseo/paseo#427" }));
+  expect(within(list).queryByRole("button", { name: "Remove PR getpaseo/paseo#427" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Save workspace" }));
+  await waitFor(() => expect(getOrganization().workspaces[workspaceKey("local", "sidebar")].links.map((link: { number: number }) => link.number)).toEqual([412, 385]));
 });
 
 it("reloads the organization when the index reports a newer revision, as after an outside edit", async () => {

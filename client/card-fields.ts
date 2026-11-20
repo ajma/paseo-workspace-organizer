@@ -50,13 +50,20 @@ export function palette(theme: Theme) {
   };
 }
 
-function linkPieces(link: CardLink, theme: Theme, full: boolean): Piece[] {
+// A PR's or issue's icon and color for its state, shared by rows, the details panel and Edit details.
+export function linkLook(kind: CardLink["kind"], state: GithubState | undefined, theme: Theme): { icon: string; color: string } {
   const { muted, identity } = palette(theme);
-  const state = link.state ?? "unknown";
-  const stateColor = state === "open" ? identity("emerald") : state === "merged" ? identity("violet")
-    : state === "closed" ? (link.kind === "issue" ? identity("violet") : identity("red")) : link.kind === "issue" ? identity("pink") : state === "draft" ? muted : identity("indigo");
-  const icon = link.kind === "issue" ? (state === "closed" ? "circle-check" : "circle-dot")
+  const color = state === "open" ? identity("emerald") : state === "merged" ? identity("violet")
+    : state === "closed" ? (kind === "issue" ? identity("violet") : identity("red")) : kind === "issue" ? identity("pink") : state === "draft" ? muted : identity("indigo");
+  const icon = kind === "issue" ? (state === "closed" ? "circle-check" : "circle-dot")
     : state === "merged" ? "git-merge" : state === "closed" ? "git-pull-request-closed" : state === "draft" ? "git-pull-request-draft" : "git-pull-request";
+  return { icon, color };
+}
+
+function linkPieces(link: CardLink, theme: Theme, full: boolean): Piece[] {
+  const { muted } = palette(theme);
+  const state = link.state ?? "unknown";
+  const { icon, color: stateColor } = linkLook(link.kind, link.state, theme);
   const word = state === "merged" ? "Merged" : state === "closed" ? "Closed" : state === "draft" ? "Draft" : full && state === "open" ? "Open" : null;
   const pieces: Piece[] = [{ icon, text: `${full ? `${link.repository}#` : ""}${link.number}${word ? ` ${word}` : ""}`, color: stateColor }];
   const checks = link.checks;

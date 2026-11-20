@@ -6,6 +6,7 @@ import { sampleCard } from "../client/card-sample";
 import { cardFields, cardPresets, type CardField } from "../shared/cards";
 import { theme } from "../preview/host";
 import { WORKING_GLOW } from "../client/motion";
+import { linkLook } from "../client/card-fields";
 
 const draw = (fields: readonly CardField[], extra: Partial<Parameters<typeof WorkspaceCardView>[0]> = {}) =>
   render(<WorkspaceCardView theme={theme} model={sampleCard(Date.now())} fields={new Set(fields)} labelLimit="all" titleLines="2"
@@ -216,4 +217,11 @@ it("tints the whole row of a working workspace, softly, and no other row", () =>
   render(<WorkspaceCardView theme={theme} model={{ ...sampleCard(Date.now()), indicator: "done", indicatorLabel: "Done" }} fields={new Set(cardFields)}
     labelLimit="all" titleLines="2" projectIcon={<Text>ICON</Text>} />);
   expect(screen.queryByTestId("working-glow")).toBeNull();
+});
+
+it("gives PRs and issues one icon per state, shared with Edit details", () => {
+  expect((["open", "draft", "merged", "closed", undefined] as const).map((state) => linkLook("pr", state, theme).icon)).toEqual(
+    ["git-pull-request", "git-pull-request-draft", "git-merge", "git-pull-request-closed", "git-pull-request"]);
+  expect((["open", "closed", undefined] as const).map((state) => linkLook("issue", state, theme).icon)).toEqual(["circle-dot", "circle-check", "circle-dot"]);
+  expect(linkLook("pr", "open", theme).color).not.toBe(linkLook("pr", "closed", theme).color);
 });

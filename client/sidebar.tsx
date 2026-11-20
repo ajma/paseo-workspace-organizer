@@ -536,7 +536,9 @@ function WorkspaceTree({ theme, navigation, active, layout, settings, runtime, c
       revision={settings.revision} group={editor.group} parentId={editor.parentId} save={save} close={closeEditor} saving={settings.saving} saveError={settings.saveError} /> }
     : editor?.kind === "workspace"
       ? { title: `Organize ${editor.title}`, element: <WorkspaceEditor key={`workspace-editor:${editor.key}`} theme={theme} title={editor.title} workspaceKey={editor.key}
-        value={value} revision={settings.revision} save={save} close={closeEditor} saving={settings.saving} saveError={settings.saveError} resolveNumbers={resolverFor(editor.key)} /> }
+        value={value} revision={settings.revision} save={save} close={closeEditor} saving={settings.saving} saveError={settings.saveError} resolveNumbers={resolverFor(editor.key)}
+        {...(() => { const [hostId, id] = JSON.parse(editor.key) as [string, string];
+          return { detected: entryFor(hostId, id)?.links ?? [], statuses: githubFor(hostId, id) }; })()} /> }
       : editor?.kind === "rename"
         ? { title: "Rename workspace", element: <RenameEditor key={`rename:${editor.reference.key}`} theme={theme} reference={editor.reference}
           title={editor.title} defaultName={editor.defaultName} close={closeEditor} /> }
