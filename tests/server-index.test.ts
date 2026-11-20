@@ -4,7 +4,9 @@ import { organizationSchema } from "../shared/organization";
 import { parseGithubLink, workspaceKey } from "../shared/organization";
 import { parseStatus } from "../server/github-status";
 
-async function harness(options: { invalid?: boolean; pushFailure?: boolean; document?: unknown; readStatus?: any; findPr?: any } = {}) {
+async function harness(options: { invalid?: boolean; pushFailure?: boolean; document?: unknown; readStatus?: any; findPr?: any; lookUp?: any } = {}) {
+  let stored: any = null;
+  let outsideEdit: () => void = () => {};
   let handler: any;
   let observer: any;
   let settingsChanged: any;
@@ -12,13 +14,14 @@ async function harness(options: { invalid?: boolean; pushFailure?: boolean; docu
   const server = {
     registerSettings: () => ({
       read: async () => options.invalid ? { status: "invalid", error: "Stored document invalid" }
-        : { status: "ready", revision: "1", values: organizationSchema.parse(options.document ?? {}) },
+        : stored ?? { status: "ready", revision: "1", values: organizationSchema.parse(options.document ?? {}) },
       subscribe: (callback: any) => { settingsChanged = callback; return stopSettings; },
     }),
     handle: (_contract: any, callback: any) => { handler = callback; },
   };
   const dispose = registerIndex(server as any, options.readStatus ?? (async (link: any) => parseStatus(link.kind, { state: "OPEN" }, "2026-11-11T12:00:00Z")),
-    options.findPr ?? (async () => null));
+    options.findPr ?? (async () => null), { lookUpNumber: options.lookUp ?? (async () => { throw new Error("HTTP 404"); }),
+      watchSettings: (_document: string, onChange: () => void) => { outsideEdit = onChange; return () => {}; } });
   const controller = new AbortController();
   const list = vi.fn(async () => ({
     subscription: { subscribe: (callback: any) => { observer = callback; callback.snapshot({ entries: [] }); return stopObservation; }, release },
@@ -31,7 +34,9 @@ async function harness(options: { invalid?: boolean; pushFailure?: boolean; docu
   // Register the rejection handler immediately to avoid an unhandled rejection during setup.
   const settled = running.then(() => null, (error: unknown) => error).finally(() => dispose?.());
   await vi.waitFor(() => expect(observer).toBeTruthy());
-  return { observer, settingsChanged, controller, push, settled, stopSettings, stopObservation, release, list };
+  // Something outside Paseo rewrites the settings file.
+  const editOutside = (document: unknown, revision: string) => { stored = { status: "ready", revision, values: organizationSchema.parse(document) }; outsideEdit(); };
+  return { observer, settingsChanged, controller, push, settled, stopSettings, stopObservation, release, list, editOutside };
 }
 
 it("observes PR changes, workspace removal and reconnect snapshots; releases every resource", async () => {
@@ -158,5 +163,37 @@ it("finds a branch's PR itself when Paseo has not detected one, and keeps Paseo'
   expect(entries.find((e: any) => e.id === "paseo").links.map((l: any) => l.number)).toEqual([5]);
   // Shared branches and workspaces with Paseo's PR are never looked up.
   expect(findPr.mock.calls.map((call) => call[1]).sort()).toEqual(["feat/found", "feat/none"]);
+  h.controller.abort(); await h.settled;
+});
+
+it("links the issue a workspace names in its title or branch, once GitHub confirms it", async () => {
+  const lookUp = vi.fn(async (repository: string, number: number) => {
+    if (number === 6159) return `https://github.com/${repository}/issues/6159`;
+    if (number === 9421) return `https://github.com/${repository}/pull/9421`;
+    throw new Error("HTTP 404: Not Found");
+  });
+  const h = await harness({ lookUp });
+  h.observer.snapshot({ entries: [
+    { id: "w", name: "w", title: "#6159 Stream logs", gitRuntime: { currentBranch: "fix-9421-thing", remoteUrl: "git@github.com:Acme/App.git" } },
+    { id: "missing", name: "m", title: "#4040 Gone", gitRuntime: { currentBranch: "main", remoteUrl: "https://github.com/acme/app.git" } },
+  ] });
+  await vi.waitFor(() => expect(h.push.mock.lastCall?.[0].entries[0].links.map((link: any) => link.url)).toEqual(
+    ["https://github.com/acme/app/issues/6159", "https://github.com/acme/app/pull/9421"]));
+  expect(h.push.mock.lastCall?.[0].entries[1].links).toEqual([]);
+  // Each number is asked about once.
+  h.observer.snapshot({ entries: [{ id: "w", name: "w", title: "#6159 Stream logs", gitRuntime: { currentBranch: "fix-9421-thing", remoteUrl: "git@github.com:Acme/App.git" } }] });
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  expect(lookUp.mock.calls.filter(([, number]) => number === 6159)).toHaveLength(1);
+  h.controller.abort(); await h.settled;
+});
+
+it("picks up an outside edit to the settings file and tells the sidebar its new revision", async () => {
+  const h = await harness();
+  h.observer.snapshot({ entries: [{ id: "w", name: "Feature" }] });
+  await vi.waitFor(() => expect(h.push.mock.lastCall?.[0].organizationRevision).toBe("1"));
+  const link = parseGithubLink("https://github.com/o/r/issues/7");
+  h.editOutside({ workspaces: { [workspaceKey("host", "w")]: { links: [link] } } }, "2");
+  await vi.waitFor(() => expect(h.push.mock.lastCall?.[0].organizationRevision).toBe("2"));
+  expect(h.push.mock.lastCall?.[0].organization.workspaces[workspaceKey("host", "w")].links).toEqual([link]);
   h.controller.abort(); await h.settled;
 });

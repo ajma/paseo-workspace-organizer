@@ -4,7 +4,7 @@ Drag workspaces into nested groups with no depth limit, drag groups into groups,
 
 Each row can show the agent and model, project, branch with git status, labels in their Paseo colors, linked PRs and issues with GitHub, CI and review status, subagents, a run timer, notes and last activity. Choose Simple, Full or Custom views, and rest on a row to see every detail in a panel beside it.
 
-Link PRs and issues by URL, or by bare number from the workspace's own repository. Find workspaces by name, tag, branch, notes, group, or PR and issue number, in the sidebar or in Command Center. Filters for status, tags, host, project and PR show live counts, tags such as `team:backend` or `📲 S25` group into trees, and searches can be saved.
+Link PRs and issues by URL, or by bare number from the workspace's own repository; an issue a workspace names in its title or branch (#6159, issue-6307-…) is linked automatically. Find workspaces by name, tag, branch, notes, group, or PR and issue number, in the sidebar or in Command Center. Filters for status, tags, host, project and PR show live counts, tags such as `team:backend` or `📲 S25` group into trees, and searches can be saved.
 
 Go back and forward through the workspaces you've opened, archive with a confirmation (or ⌘⇧⌫ twice) and watch the row slide away, and open PRs and issues as a Paseo browser tab or, if you prefer, in your default browser. The toolbar's chips can be reordered by dragging and shown with or without text.
 

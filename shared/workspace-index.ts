@@ -16,6 +16,8 @@ export const indexEventSchema = z.object({
   hostId: z.string(), entries: z.array(indexEntrySchema),
   organization: organizationSchema.nullable(), error: z.string().nullable(),
   github: z.record(z.string(), githubStatusSchema).default({}),
+  // The organization's revision on the host, so the sidebar can reload after an edit made outside Paseo.
+  organizationRevision: z.string().nullable().default(null),
 });
 export type IndexEvent = z.infer<typeof indexEventSchema>;
 export const workspaceIndex = defineSubscription({ name: "organization.watch", input: z.object({}), event: indexEventSchema });

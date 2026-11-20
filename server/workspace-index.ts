@@ -5,18 +5,39 @@ import { workspaceIndex, type IndexEntry } from "../shared/workspace-index";
 import type { GithubStatus } from "../shared/github-status";
 import { createStatusCache, readGithubStatus, type StatusReader } from "./github-status";
 import { createPrLookup, findPullRequest, type PrFinder } from "./pr-lookup";
+import { createIssueLookup } from "./issue-lookup";
+import { lookUpNumber, type NumberLookup } from "./link-resolve";
+import { watchSettingsFile, type SettingsWatcher } from "./settings-watch";
+import { githubRepositoryOf } from "../shared/link-resolve";
+import { issueNumbersFrom } from "../shared/issue-refs";
+import { parseGithubLink } from "../shared/organization";
 
 type PrLookup = ReturnType<typeof createPrLookup>;
 // A workspace as the daemon's Paseo API lists it (its own type lives in a package plugins can't import).
 type PaseoWorkspace = Awaited<ReturnType<PluginHookContext["paseo"]["workspaces"]["list"]>>["entries"][number];
 
-function entry(workspace: PaseoWorkspace, prs?: PrLookup): IndexEntry {
-  return workspaceEntry(workspace, workspace.githubRuntime?.pullRequest?.url ? null : prs?.get(workspace.workspaceDirectory, workspace.gitRuntime?.currentBranch));
+type IssueLookup = ReturnType<typeof createIssueLookup>;
+type Remote = { gitRuntime?: { remoteUrl?: string | null } | null; project?: { checkout?: { remoteUrl?: string | null } | null } | null };
+
+// Paseo's detected PR (or the plugin's own lookup) comes first, then the issues the workspace names in its title or
+// branch, in its own repository, once GitHub has confirmed them.
+function entry(workspace: PaseoWorkspace, prs?: PrLookup, issues?: IssueLookup): IndexEntry {
+  const base = workspaceEntry(workspace, workspace.githubRuntime?.pullRequest?.url ? null : prs?.get(workspace.workspaceDirectory, workspace.gitRuntime?.currentBranch));
+  const remote = workspace as unknown as Remote;
+  const repository = issues ? githubRepositoryOf(remote.gitRuntime?.remoteUrl ?? remote.project?.checkout?.remoteUrl) : null;
+  if (!issues || !repository) return base;
+  const named = issueNumbersFrom({ title: workspace.title ?? workspace.name, branch: workspace.gitRuntime?.currentBranch }).flatMap((number) => {
+    const url = issues.get(repository, number);
+    try { return url ? [parseGithubLink(url)] : []; } catch { return []; }
+  });
+  return named.length ? { ...base, links: mergeLinks(base.links, named) } : base;
 }
 
-export function registerIndex(server: PluginServerContext, readStatus: StatusReader = readGithubStatus, findPr: PrFinder = findPullRequest) {
+export function registerIndex(server: PluginServerContext, readStatus: StatusReader = readGithubStatus, findPr: PrFinder = findPullRequest,
+  { lookUpNumber: lookUp = lookUpNumber, watchSettings = watchSettingsFile }: { lookUpNumber?: NumberLookup; watchSettings?: SettingsWatcher } = {}) {
   const cache = createStatusCache(readStatus);
   const prs = createPrLookup(findPr);
+  const issues = createIssueLookup(lookUp);
   const settings = server.registerSettings(organization);
   server.handle(workspaceIndex, async (_input, context) => {
     const { paseo, signal, push } = context;
@@ -38,7 +59,7 @@ export function registerIndex(server: PluginServerContext, readStatus: StatusRea
         catch { /* Older or hand-edited metadata keys do not identify a local workspace. */ }
         return hostId === self.serverId && !active.some((workspace) => workspaceKey(hostId, workspace.id) === key) ? [] : details.links;
       }) : [];
-      return mergeLinks(active.flatMap((workspace) => entry(workspace, prs).links), manual);
+      return mergeLinks(active.flatMap((workspace) => entry(workspace, prs, issues).links), manual);
     };
     let complete!: (error?: unknown) => void;
     const completed = new Promise<unknown>((resolve) => { complete = resolve; });
@@ -51,7 +72,7 @@ export function registerIndex(server: PluginServerContext, readStatus: StatusRea
       if (closed || signal.aborted) return;
       const statuses = { ...github };
       for (const workspace of workspaces.values()) {
-        const url = entry(workspace, prs).links[0]?.url, status = detectedStatus(workspace);
+        const url = entry(workspace, prs, issues).links[0]?.url, status = detectedStatus(workspace);
         if (url && status) {
           const fetched = statuses[url];
           const nativeTime = status.updatedAt ? Date.parse(status.updatedAt) : 0;
@@ -61,9 +82,10 @@ export function registerIndex(server: PluginServerContext, readStatus: StatusRea
         }
       }
       const event = { hostId: self.serverId,
-        entries: [...workspaces.values()].filter((w) => !w.background && !w.archivingAt).map((w) => entry(w, prs)),
+        entries: [...workspaces.values()].filter((w) => !w.background && !w.archivingAt).map((w) => entry(w, prs, issues)),
         organization: document.status === "ready" ? document.values : null,
-        error: document.status === "invalid" ? document.error : null, github: statuses };
+        error: document.status === "invalid" ? document.error : null, github: statuses,
+        organizationRevision: document.status === "ready" ? document.revision : null };
       sending = sending.then(() => { if (!closed && !signal.aborted) return push(event); }).catch(finish);
     };
     const refresh = async () => {
@@ -104,7 +126,16 @@ export function registerIndex(server: PluginServerContext, readStatus: StatusRea
       const stopSettings = settings.subscribe((next) => { document = next; changed(); });
       // A newly found PR is sent and its status fetched like Paseo's detected ones.
       const stopPrs = prs.subscribe(changed);
-      stop = () => { stopSettings(); stopPrs(); };
+      // Issues named in titles and branches arrive as GitHub answers.
+      const stopIssues = issues.subscribe(changed);
+      // An edit made outside Paseo (a script adding links) is read through Paseo's store, and sent if it changed.
+      const stopWatching = watchSettings(organization.id, () => {
+        void settings.read().then((next) => {
+          const before = document.status === "ready" ? document.revision : null, after = next.status === "ready" ? next.revision : null;
+          if (next.status !== document.status || before !== after) { document = next; changed(); }
+        }, () => {});
+      });
+      stop = () => { stopSettings(); stopPrs(); stopIssues(); stopWatching(); };
       unobserve = result.subscription.subscribe({
       snapshot: ({ entries }) => { workspaces.clear(); for (const item of entries) workspaces.set(item.id, item); changed(); },
       update: (message) => {

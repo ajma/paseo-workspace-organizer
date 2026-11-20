@@ -150,6 +150,15 @@ export function OrganizerSidebar(props: PluginSidebarViewProps & { index: Worksp
   // Per-device preferences, with quick successive changes saved one after another.
   const { values: prefs, update: updatePrefs } = useQueuedSave(device);
   const runtime = useWorkspaceIndex(props.index);
+  // Paseo only tells this sidebar about organization changes it saved itself; the index reports the host's revision,
+  // so an edit made outside Paseo (a script adding links) reloads it here, once per new revision.
+  const indexRevision = runtime?.organizationRevision ?? null;
+  const reloadedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!indexRevision || settings.status !== "ready" || indexRevision === settings.revision || reloadedFor.current === indexRevision) return;
+    reloadedFor.current = indexRevision;
+    void settings.reload();
+  }, [indexRevision]);
   // Groups from: when several hosts run the plugin, the saved pick tells every copy whose sidebar to show.
   const sidebarHosts = useSidebarHosts();
   const allHosts = useHosts();

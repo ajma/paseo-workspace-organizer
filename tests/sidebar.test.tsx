@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { View } from "react-native";
 import { HINT_DELAY_MS } from "../client/hint";
 import { createProjectIconStore } from "../client/project-icons";
-import { archiveCalls, changeOrganization, failArchives, failRenames, getDocument, getOrganization, makeIndex, renameCalls, resetHost, setHostLabels, setWorkspaces, theme, workspace } from "../preview/host";
+import { archiveCalls, changeOrganization, failArchives, failRenames, getDocument, getOrganization, makeIndex, reloadCalls, renameCalls, resetHost, setHostLabels, setWorkspaces, theme, workspace } from "../preview/host";
 import { placeSidebar } from "../client/sidebar-placement";
 import { emptyDetails, workspaceKey } from "../shared/organization";
 
@@ -180,6 +180,22 @@ it("looks a bare PR or issue number up in the workspace's repository when saving
   fireEvent.click(screen.getByRole("button", { name: "Save workspace" }));
   await waitFor(() => expect(getOrganization().workspaces[workspaceKey("local", "notes")].links.map((link: { url: string }) => link.url)).toEqual(["https://github.com/getpaseo/paseo/pull/42"]));
   expect(resolveLinks).toHaveBeenLastCalledWith(expect.objectContaining({ hostId: "local", workspaceId: "notes", numbers: [42] }));
+});
+
+it("reloads the organization when the index reports a newer revision, as after an outside edit", async () => {
+  const listeners = new Set<() => void>();
+  let snapshot: any = { hostId: "local", entries: [], organization: null, organizationRevision: "1", error: null, github: {} };
+  const index = { subscribe: (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener); }; },
+    getSnapshot: () => snapshot, getError: () => null, dispose() {} };
+  render(<OrganizerSidebar theme={theme} layout={{ compact: true, platform: "web" }} active={{ workspace: null, agent: null }}
+    navigation={{ openWorkspace: vi.fn(), openAgent: vi.fn(), openTerminal: vi.fn(), openProject: vi.fn() }} dismiss={vi.fn()} index={index as any} />);
+  reloadCalls.length = 0;
+  await act(async () => { snapshot = { ...snapshot, organizationRevision: "outside-2" }; listeners.forEach((listener) => listener()); });
+  await waitFor(() => expect(reloadCalls).toContain("organization"));
+  // The same revision again doesn't reload again.
+  const count = reloadCalls.length;
+  await act(async () => { snapshot = { ...snapshot }; listeners.forEach((listener) => listener()); });
+  expect(reloadCalls.length).toBe(count);
 });
 
 it("keeps an unsaved draft when another client changes the organization", async () => {

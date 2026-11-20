@@ -32,6 +32,7 @@ Done means all three pass, and you have observed the behaviour in the preview, n
   - label colors: `~/.paseo/projects/workspace-labels.json`
   - host colors and badges, and which hosts are this computer's (a `direct` connection to a loopback address): localStorage `@paseo:daemon-registry`
   - the device's Groups from pick, read before any sidebar draws: localStorage `@paseo:plugin-device-settings:<plugin id>/preferences`
+  - the plugin's own settings file: the daemon side watches `~/.paseo/plugin-settings/*/organization.json` (`server/settings-watch.ts`), because Paseo announces only changes it saved itself, so outside edits reach the sidebar through the index's `organizationRevision`
   - keyboard shortcut changes: localStorage `@paseo:keyboard-shortcut-overrides`, loaded into the react-query key `["keyboard-shortcut-overrides"]`. The plugin writes both, only when the user flips the ⌘[ / ⌘] setting (`client/paseo-shortcuts.ts`).
 - **One copy per host:** Paseo loads the plugin once per host that has it, in the same window, and shows the first copy's sidebar view whatever its host. `client/sidebar-placement.ts` has the copies agree through `globalThis` on one host (see `sidebarHostFor`), so only that copy adds the view.
 - **Stand-in host:** when code uses a new host API, add it to `preview/host.tsx` so the tests and the preview exercise it.

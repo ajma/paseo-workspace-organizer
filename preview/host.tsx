@@ -31,6 +31,8 @@ const listeners = new Set<() => void>();
 let documents: Record<string, { revision: string; values: any }>;
 let version = 0;
 const saveErrors: Record<string, string | null> = {};
+// Settings documents the plugin asked to reload, as after an edit made outside Paseo.
+export const reloadCalls: string[] = [];
 const emit = () => { version++; listeners.forEach((listener) => listener()); };
 const subscribe = (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener); }; };
 // Agents: tests replace them with setAgents.
@@ -71,7 +73,7 @@ export function useSettings(definition: any) {
     save: async (values: any, revision: string) => {
       if (revision !== documents[definition.id].revision) { saveErrors[definition.id] = "Settings changed elsewhere. Reload and try again."; emit(); return false; }
       documents[definition.id] = { revision: String(Number(revision) + 1), values: definition.schema.parse(values) }; emit(); return true;
-    }, reload: async () => { saveErrors[definition.id] = null; emit(); }, reset: async () => true };
+    }, reload: async () => { reloadCalls.push(definition.id); saveErrors[definition.id] = null; emit(); }, reset: async () => true };
 }
 export function useWorkspaces(query: any = {}) {
   useSyncExternalStore(subscribe, () => version);

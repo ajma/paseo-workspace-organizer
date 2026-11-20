@@ -91,7 +91,7 @@ When you run a dozen agents at once, a flat list of workspaces stops working. **
 | **Actions** | Archive with confirmation and slide-away animation · ⌘⇧⌫ archive shortcut · edit details · rename · copy path · copy branch · pin / unpin |
 | **Toolbar** | Search · Filters · Saved · View · Group · Sort · reorderable chips · ⋯ menu with Groups from (when several hosts run it), button labels toggle and plugin settings · hover hints · two-line layout in narrow sidebars |
 | **Celebrations** | Confetti and a recap when a PR merges · open or archive the workspace from the recap · ⌥O / ⌥A shortcuts · verb, emoji, issue recap and confetti settings · preview from ⌘K · desktop and web |
-| **GitHub** | Paseo-detected PRs · automatic PR lookup by branch via `gh` · manual PR and issue links across repositories · bare #numbers looked up in the workspace's repository · status cached and refreshed |
+| **GitHub** | Paseo-detected PRs · automatic PR lookup by branch via `gh` · manual PR and issue links across repositories · bare #numbers looked up in the workspace's repository · issues named in a workspace's title or branch linked automatically · status cached and refreshed |
 | **Polish** | Paseo-native look · smooth animations that respect reduced motion · per-device preferences · settings shared across clients |
 
 See the [**user guide**](docs/guide.md) for exactly how each feature behaves.
