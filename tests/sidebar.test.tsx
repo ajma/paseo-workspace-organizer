@@ -946,3 +946,24 @@ it("goes back and forward with ⌘[ / ⌘] even while typing, once Paseo's own b
   textbox.remove();
   platform.mockRestore();
 });
+
+it("offers to show the open workspace when its group is collapsed, and expands every group around it", async () => {
+  render(<OrganizerSidebar theme={theme} layout={{ compact: true, platform: "web" }} active={{ workspace: { kind: "workspace", hostId: "local", id: "sidebar", key: workspaceKey("local", "sidebar") } as any, agent: null }}
+    navigation={{ openWorkspace: vi.fn(), openAgent: vi.fn(), openTerminal: vi.fn(), openProject: vi.fn() }} dismiss={vi.fn()} index={makeIndex()} />);
+  // In view: no button.
+  expect(screen.queryByRole("button", { name: "Show current workspace" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Collapse Interface" }));
+  fireEvent.click(screen.getByRole("button", { name: "Collapse In progress" }));
+  await waitFor(() => expect(screen.queryByText("Restructure workspace navigation")).toBeNull());
+  // Just an icon; resting on it names what it does.
+  const jump = screen.getByRole("button", { name: "Show current workspace" });
+  expect(jump.textContent).toBe("");
+  fireEvent.pointerEnter(jump, { pointerType: "mouse" });
+  expect(screen.queryByRole("tooltip")).toBeNull();
+  await waitFor(() => expect(screen.getByRole("tooltip").textContent).toBe("Scroll to the current workspace"));
+  fireEvent.click(jump);
+  await waitFor(() => expect(screen.getByText("Restructure workspace navigation")).toBeTruthy());
+  expect(screen.getByRole("button", { name: "Collapse In progress" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Collapse Interface" })).toBeTruthy();
+  await waitFor(() => expect(screen.queryByRole("button", { name: "Show current workspace" })).toBeNull());
+});

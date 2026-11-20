@@ -2,7 +2,7 @@ import {
   getPaseoClient, openExternalUrl, useAgent, useHosts, useProjects, useSettings, useWorkspace, useWorkspaces,
   type AgentRef, type PluginSidebarViewProps, type WorkspaceRef,
 } from "@getpaseo/plugin/client";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { descendants, preferences, dissolveGroup, emptyDetails, matchesSearch, mergeLinks, organization, placeGroup, placeWorkspace, searchTerms,
   type Group, type Organization } from "../shared/organization";
@@ -35,6 +35,8 @@ import { useLabelColors, type LabelColorStore } from "./label-colors";
 import { useRemoteWorkspaces, type RemoteWorkspaces } from "./remote-workspaces";
 import { archiveWorkspace, useArchiveShortcut, useRowArchiver } from "./archive-shortcut";
 import { Leaving } from "./motion";
+import { JumpToActiveButton, useJumpToActive } from "./jump-to-active";
+import { collapsedAround, groupChain } from "../shared/jump-to-active";
 import { Collapsible, TurningChevron } from "./collapsible";
 import { backgroundBehind, historyShortcutLabel, hostBadge, isElectron, onHistoryInput, readHostAppearance, readLocalHostIds } from "./web";
 import { detectedStatus, workspaceEntry } from "../shared/workspace-entry";
@@ -74,7 +76,7 @@ function WithAgent({ agent, hostId, children }: { agent: AgentRef; hostId: strin
   return <>{children(snapshot ? { ...agentLabels(catalog, snapshot), modelId: snapshot.model, status: snapshot.status } : null)}</>;
 }
 
-function WorkspaceRow({ reference, theme, navigation, active, now, details, detectedLinks, git, github, hostLabel, hostIconOnly, hostColor, card, icons, installationHostId, labelList, onEdit, onRename, drag, openInBrowser }: {
+function WorkspaceRow({ reference, theme, navigation, active, now, details, detectedLinks, git, github, hostLabel, hostIconOnly, hostColor, card, icons, installationHostId, labelList, onEdit, onRename, drag, openInBrowser, rowRef }: {
   reference: WorkspaceRef; theme: Theme; navigation: PluginSidebarViewProps["navigation"]; active: string | undefined; now: number;
   details: ReturnType<typeof emptyDetails>; detectedLinks: ReturnType<typeof mergeLinks>; git: CardModel["git"]; hostLabel?: string;
   hostIconOnly: boolean; hostColor: IdentityColor | null;
@@ -82,6 +84,8 @@ function WorkspaceRow({ reference, theme, navigation, active, now, details, dete
   labelList: readonly { name: string; color: IdentityColor }[];
   onEdit: (title: string) => void; onRename: (title: string, defaultName: string) => void; drag: DragSpec;
   openInBrowser?: (url: string, workspace: WorkspaceRef) => void;
+  // The open workspace's row hands its element to the Current workspace button.
+  rowRef?: (node: unknown) => void;
 }) {
   const workspace = useWorkspace(reference);
   const agents = useWorkspaceAgents(reference);
@@ -92,6 +96,7 @@ function WorkspaceRow({ reference, theme, navigation, active, now, details, dete
   const [leaving, setLeaving] = useState(false);
   const archive = () => setLeaving(true); // setting it again while leaving changes nothing
   useRowArchiver(reference.key, archive);
+  const nodeRef = useCallback((node: unknown) => { dnd.ref(node); rowRef?.(node); }, [dnd.ref, rowRef]);
   if (!workspace) return null;
   const title = workspace.title ?? workspace.name;
   const activityAt = lastActivityAt([workspace.lastPromptAt, workspace.statusEnteredAt, workspace.createdAt]);
@@ -112,7 +117,7 @@ function WorkspaceRow({ reference, theme, navigation, active, now, details, dete
   };
   const render = (agent: CardModel["agent"]) => <WorkspaceCardView theme={theme} model={{ ...base, agent }} fields={card.fields}
     labelLimit={card.labelLimit} titleLines={card.titleLines} active={active === reference.key}
-    nodeRef={dnd.ref} dropLine={dnd.position === "inside" ? null : dnd.position}
+    nodeRef={nodeRef} dropLine={dnd.position === "inside" ? null : dnd.position}
     projectIcon={<ProjectIconView project={workspace.project} store={icons} installationHostId={installationHostId} size={font.md} color={theme.colors.foregroundMuted} />}
     onOpen={() => navigation.openWorkspace(reference)}
     actions={{
@@ -395,7 +400,7 @@ function WorkspaceTree({ theme, navigation, active, layout, settings, runtime, c
       hostIconOnly={hostBadgeFor(ref.hostId) === "icon"} hostColor={hostAppearance.get(ref.hostId)?.color ?? null}
       onEdit={(title) => setEditor({ kind: "workspace", key: ref.key, title })}
       onRename={(title, defaultName) => setEditor({ kind: "rename", reference: ref, title, defaultName })}
-      drag={rowDrag(ref.key, bucket, siblings, groupId)} />);
+      drag={rowDrag(ref.key, bucket, siblings, groupId)} rowRef={ref.key === active.workspace?.key ? jumpToActive.rowRef : undefined} />);
   }
   const groupMenu = (group: Group) => busy ? [] : [
     { label: "Rename or move…", run: () => setEditor({ kind: "group", group, parentId: group.parentId }) },
@@ -517,6 +522,14 @@ function WorkspaceTree({ theme, navigation, active, layout, settings, runtime, c
   const groupIds = ownGroups ? [...value.groups.map((group) => group.id), ...(showsUngrouped ? [UNGROUPED] : [])]
     : groupBy === "none" ? [] : buckets.map((bucket) => `${groupBy}:${bucket.key}`);
   const anyOpen = groupIds.some((id) => !collapsed.includes(id));
+  // The open workspace's sections, outermost first, for the Current workspace button to open when they're collapsed.
+  const activeKey = active.workspace?.key ?? null;
+  const activeListed = activeKey !== null && refs.some((ref) => ref.key === activeKey);
+  const activeChain = !activeListed || searching ? [] : ownGroups
+    ? (() => { const chain = groupChain(value.groups, value.workspaces[activeKey!]?.groupId ?? null); return chain.length ? chain : showsUngrouped ? [UNGROUPED] : []; })()
+    : groupBy === "none" ? [] : buckets.filter((bucket) => bucket.items.some((ref) => ref.key === activeKey)).map((bucket) => `${groupBy}:${bucket.key}`);
+  const jumpToActive = useJumpToActive({ activeKey, listed: activeListed, hiddenBy: collapsedAround(activeChain, collapsed),
+    expand: (ids) => setCollapsed(ids, false) });
   // No background of its own: the sidebar shows Paseo's sidebar color behind it.
   // Bare PR or issue numbers are looked up in the workspace's repository: this daemon's host finds it from the
   // workspace's git remote; for another host's workspace the sidebar reads it from that host's workspace list.
@@ -579,13 +592,13 @@ function WorkspaceTree({ theme, navigation, active, layout, settings, runtime, c
       if (nativeSticky) {
         const items = flatList();
         const stickyHeaderIndices = items.flatMap((item, index) => (item.sticky ? [index] : []));
-        return <ScrollView contentContainerStyle={contentStyle} keyboardShouldPersistTaps="handled" stickyHeaderIndices={stickyHeaderIndices}>
+        return <ScrollView ref={jumpToActive.listRef} {...jumpToActive.scrollProps} contentContainerStyle={contentStyle} keyboardShouldPersistTaps="handled" stickyHeaderIndices={stickyHeaderIndices}>
           {/* A pinned item covers its full width, including a nested header's indentation, so rows never show beside it. */}
           {items.map((item) => <View key={item.key} style={item.sticky ? { backgroundColor: theme.colors.surface0 } : undefined}>{item.element}</View>)}
           {empty}
         </ScrollView>;
       }
-      return <ScrollView contentContainerStyle={contentStyle} keyboardShouldPersistTaps="handled">
+      return <ScrollView ref={jumpToActive.listRef} {...jumpToActive.scrollProps} contentContainerStyle={contentStyle} keyboardShouldPersistTaps="handled">
         {ownGroups ? <>
           {renderGroups(null)}
           {/* Workspaces outside every group; while dragging it also takes workspaces and groups out of their groups. */}
@@ -601,6 +614,7 @@ function WorkspaceTree({ theme, navigation, active, layout, settings, runtime, c
         {empty}
       </ScrollView>;
     })()}
+    {jumpToActive.show ? <JumpToActiveButton theme={theme} onPress={jumpToActive.jump} /> : null}
   </View>;
 }
 

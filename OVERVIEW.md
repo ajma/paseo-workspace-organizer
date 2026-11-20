@@ -1,6 +1,6 @@
 Workspace organizer replaces Paseo's workspace sidebar with one built for running many agents at once.
 
-Drag workspaces into nested groups with no depth limit, drag groups into groups, or switch to automatic grouping by host, project or PR status, or to one flat list. Paseo's New workspace screen gains a Group field so new workspaces land in the right group. Collapse or expand everything in one press, and keep group headers pinned while you scroll.
+Drag workspaces into nested groups with no depth limit, drag groups into groups, or switch to automatic grouping by host, project or PR status, or to one flat list. Paseo's New workspace screen gains a Group field so new workspaces land in the right group. Collapse or expand everything in one press, keep group headers pinned while you scroll, and jump back to the open workspace when it's out of view or in a collapsed group.
 
 Each row can show the agent and model, project, branch with git status, labels in their Paseo colors, linked PRs and issues with GitHub, CI and review status, subagents, a run timer, notes and last activity. Choose Simple, Full or Custom views, and rest on a row to see every detail in a panel beside it.
 

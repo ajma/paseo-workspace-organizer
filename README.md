@@ -87,7 +87,7 @@ When you run a dozen agents at once, a flat list of workspaces stops working. **
 | **Views** | Simple / Full / Custom views · per-field toggles · labels shown · title lines · simple rows on phones · live sample in settings |
 | **Details** | Hover panel with every field in full · clickable PR and issue links · long-press on phones |
 | **Search** | Text search · ⌘K Command Center results by PR or issue number · filters (status, tags, host, project, PR) with counts · two-level and emoji tags · saved searches |
-| **Navigation** | Back / Forward history with ⌘← / ⌘→, ⌘[ / ⌘] and mouse side buttons · open-workspace highlight · links open in a Paseo browser tab or your default browser (setting) |
+| **Navigation** | Back / Forward history with ⌘← / ⌘→, ⌘[ / ⌘] and mouse side buttons · open-workspace outline · Current workspace button that scrolls to it and opens its collapsed groups · links open in a Paseo browser tab or your default browser (setting) |
 | **Actions** | Archive with confirmation and slide-away animation · ⌘⇧⌫ archive shortcut · edit details · rename · copy path · copy branch · pin / unpin |
 | **Toolbar** | Search · Filters · Saved · View · Group · Sort · reorderable chips · ⋯ menu with Groups from (when several hosts run it), button labels toggle and plugin settings · hover hints · two-line layout in narrow sidebars |
 | **Celebrations** | Confetti and a recap when a PR merges · open or archive the workspace from the recap · ⌥O / ⌥A shortcuts · verb, emoji, issue recap and confetti settings · preview from ⌘K · desktop and web |

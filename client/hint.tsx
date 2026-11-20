@@ -23,8 +23,10 @@ export function useHint(enabled: boolean) {
 }
 
 // Drawn just below the control, in the opposite colors of the sidebar so it stands out like a native tooltip.
-export function HintBubble({ theme, text, align = "left" }: { theme: Theme; text: string; align?: "left" | "right" }) {
-  return <View role="tooltip" pointerEvents="none" style={{ position: "absolute", top: "100%", marginTop: 6, zIndex: 100,
+// A control at the bottom of the sidebar shows it above instead, where there's room.
+export function HintBubble({ theme, text, align = "left", side = "below" }: { theme: Theme; text: string; align?: "left" | "right"; side?: "below" | "above" }) {
+  return <View role="tooltip" pointerEvents="none" style={{ position: "absolute", zIndex: 100,
+    ...(side === "above" ? { bottom: "100%", marginBottom: 6 } : { top: "100%", marginTop: 6 }),
     // "max-content" sizes the bubble to its text on the web; phones never hover, and would crash on a CSS-only width.
     ...(align === "right" ? { right: 0 } : { left: 0 }), ...(Platform.OS === "web" ? { width: "max-content" } : {}), maxWidth: 240,
     paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, backgroundColor: theme.colors.foreground,
