@@ -225,3 +225,36 @@ it("gives PRs and issues one icon per state, shared with Edit details", () => {
   expect((["open", "closed", undefined] as const).map((state) => linkLook("issue", state, theme).icon)).toEqual(["circle-dot", "circle-check", "circle-dot"]);
   expect(linkLook("pr", "open", theme).color).not.toBe(linkLook("pr", "closed", theme).color);
 });
+
+it("shows a running, waiting or failed workspace as a colored bar down the row's left edge, in place of the open row's bar", () => {
+  const bar = () => screen.queryByTestId("status-bar") as HTMLElement | null;
+  const color = (element: HTMLElement | null) => element && getComputedStyle(element).backgroundColor;
+  const cases = [["running", theme.colors.accent], ["needs_input", theme.colors.statusWarning], ["failed", theme.colors.statusDanger]] as const;
+  for (const [indicator, expected] of cases) {
+    const { unmount } = draw([], { model: { ...sampleCard(Date.now()), indicator } });
+    const inner = bar()?.querySelector('[data-testid="status-bar-fill"]') as HTMLElement | null;
+    const probe = document.createElement("div"); probe.style.backgroundColor = expected;
+    expect(color(inner)).toBe(probe.style.backgroundColor);
+    unmount();
+  }
+  // No bar once it's done; the open row keeps its own, which a status bar replaces.
+  const done = draw([], { model: { ...sampleCard(Date.now()), indicator: "done" }, active: true });
+  expect(bar()).toBeNull();
+  expect(screen.getByTestId("active-marker")).toBeTruthy();
+  done.unmount();
+  draw([], { model: { ...sampleCard(Date.now()), indicator: "needs_input" }, active: true });
+  expect(bar()).toBeTruthy();
+  expect(screen.queryByTestId("active-marker")).toBeNull();
+});
+
+it("outlines the open workspace in the accent color, whatever its status", () => {
+  for (const indicator of ["done", "needs_input", "running"] as const) {
+    const { unmount } = draw([], { model: { ...sampleCard(Date.now()), indicator }, active: true });
+    const outline = screen.getByTestId("active-outline");
+    const probe = document.createElement("div"); probe.style.borderColor = theme.colors.accent;
+    expect(getComputedStyle(outline).borderTopColor).toBe(probe.style.borderTopColor);
+    unmount();
+  }
+  draw([], { model: { ...sampleCard(Date.now()), indicator: "done" }, active: false });
+  expect(screen.queryByTestId("active-outline")).toBeNull();
+});

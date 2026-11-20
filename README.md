@@ -41,7 +41,7 @@ When you run a dozen agents at once, a flat list of workspaces stops working. **
 - **Rich workspace rows** show agent and model, project, branch with git status, labels in their Paseo colors, linked PRs and issues with CI results, subagents, run timer and last activity.
 - **Simple, Full or Custom views.** Pick exactly which fields appear.
 - **Hover for the whole story.** Rest on a row for half a second and a details panel lists every field in full, with clickable links.
-- **Live status.** Working rows glow softly and their status dot pulses, CI checks spin while they run, and the open workspace is always marked.
+- **Live status.** Running, waiting and failed rows carry a status-colored bar down their left edge; working rows glow softly and their bar pulses, CI checks spin while they run, and the open workspace is always marked.
 
 ### 🔎 Find anything fast
 
@@ -83,7 +83,7 @@ When you run a dozen agents at once, a flat list of workspaces stops working. **
 | Area | Feature |
 |---|---|
 | **Groups** | Nested custom groups · drag-and-drop workspaces and groups · Group field on the New workspace screen · Group by Host / Project / PR status / None · Ungrouped section · collapse/expand all · animated collapse · sticky group headers (setting) |
-| **Rows** | Project icon or agent mark with status dot · title (1–4 lines) · last activity · agent, model, thinking level · project › workspace · branch with dirty, ahead and behind · folder or full path · labels and tags with `+N` · PRs and issues with state, CI and review · subagent summary · run timer · notes · host badge |
+| **Rows** | Project icon or agent mark · status bar on the left edge · title (1–4 lines) · last activity · agent, model, thinking level · project › workspace · branch with dirty, ahead and behind · folder or full path · labels and tags with `+N` · PRs and issues with state, CI and review · subagent summary · run timer · notes · host badge |
 | **Views** | Simple / Full / Custom views · per-field toggles · labels shown · title lines · simple rows on phones · live sample in settings |
 | **Details** | Hover panel with every field in full · clickable PR and issue links · long-press on phones |
 | **Search** | Text search · ⌘K Command Center results by PR or issue number · filters (status, tags, host, project, PR) with counts · two-level and emoji tags · saved searches |

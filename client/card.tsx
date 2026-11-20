@@ -169,11 +169,6 @@ export function WorkspaceCardView({ theme, model, fields, labelLimit, titleLines
     <Tip onPress={onOpen}>
       <View accessibilityLabel={model.indicatorLabel ?? undefined} style={{ width: 18, height: 20, alignItems: "center", justifyContent: "center" }}>
         {leading}
-        {/* A running workspace's status dot pulses. */}
-        {badge ? <View style={{ position: "absolute", right: -2, bottom: 0 }}><Pulse on={running}>
-          <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: color,
-            borderWidth: 1.5, borderColor: active ? theme.colors.surface2 : theme.colors.surface0 }} />
-        </Pulse></View> : null}
       </View>
     </Tip>
     <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
@@ -267,7 +262,18 @@ export function WorkspaceCardView({ theme, model, fields, labelLimit, titleLines
     {/* The open workspace: an accent bar along its left edge, with a bold title and a raised background. */}
     {/* Over the content rather than under it, so the hover buttons' solid backdrop takes the tint too; below the menu. */}
     {running ? <Glow color={color} radius={8} dark={isDarkSurface(theme.colors.surface0)} /> : null}
-    {active ? <View testID="active-marker" pointerEvents="none" style={{ position: "absolute", left: 0, top: 6, bottom: 6, width: 3, borderRadius: 2,
+    {/* A running, waiting or failed workspace: a bar in its status color down the left edge, tall enough to read the
+        color at a glance. It takes the open row's place there; that row still has its raised background and bold title. */}
+    {badge ? <View testID="status-bar" pointerEvents="none" style={{ position: "absolute", left: 0, top: 6, bottom: 6, width: 3 }}>
+      <Pulse on={running} style={{ flex: 1 }}>
+        <View testID="status-bar-fill" style={{ flex: 1, borderRadius: 2, backgroundColor: color }} />
+      </Pulse>
+    </View> : null}
+    {/* The open workspace is also outlined all round, so it stays easy to find whatever its status bar shows. Drawn over
+        the row rather than as its border, so opening a workspace never shifts its content. */}
+    {active ? <View testID="active-outline" pointerEvents="none" style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0,
+      borderRadius: 8, borderWidth: 1, borderColor: theme.colors.accent, zIndex: 16 }} /> : null}
+    {active && !badge ? <View testID="active-marker" pointerEvents="none" style={{ position: "absolute", left: 0, top: 6, bottom: 6, width: 3, borderRadius: 2,
       backgroundColor: theme.colors.accent }} /> : null}
     {/* Where a dragged workspace would land: a line above or below this row. */}
     {dropLine ? <View testID="drop-line" pointerEvents="none" style={{ position: "absolute", left: 6, right: 6, height: 2, borderRadius: 1,

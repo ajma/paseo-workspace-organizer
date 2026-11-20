@@ -1,7 +1,7 @@
 // Shared motion helpers. Everything here respects the system's reduce-motion setting and stays still when it is on.
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { breath } from "../shared/breath";
-import { AccessibilityInfo, Animated, Easing, Platform } from "react-native";
+import { AccessibilityInfo, Animated, Easing, Platform, type ViewStyle } from "react-native";
 
 // React Native Web stops animations through Metro's `global`. Paseo's own bundle defines it; make sure it exists so
 // stopping a spinner or slide can never throw.
@@ -54,12 +54,12 @@ export function Spin({ on = true, children }: { on?: boolean; children: ReactNod
 }
 
 // Fades its content gently in and out, like a heartbeat.
-export function Pulse({ on = true, children }: { on?: boolean; children: ReactNode }) {
+export function Pulse({ on = true, style, children }: { on?: boolean; style?: ViewStyle; children: ReactNode }) {
   // Steady time shaped by the breathing curve: it dims and shrinks, then returns, evenly.
   const phase = useSharedLoop("pulse", on, 1400, 0, Easing.linear);
   const opacity = phase.interpolate({ inputRange: CURVE_STEPS, outputRange: CURVE_STEPS.map((t) => 1 - 0.65 * breath(t)) });
   const scale = phase.interpolate({ inputRange: CURVE_STEPS, outputRange: CURVE_STEPS.map((t) => 1 - 0.2 * breath(t)) });
-  return <Animated.View style={{ opacity, transform: [{ scale }] }}>{children}</Animated.View>;
+  return <Animated.View style={[style, { opacity, transform: [{ scale }] }]}>{children}</Animated.View>;
 }
 
 // Kept subtle, but the same wash reads far weaker over a dark surface than a light one, so dark themes get more:
