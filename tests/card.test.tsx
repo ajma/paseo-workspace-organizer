@@ -258,3 +258,15 @@ it("outlines the open workspace in the accent color, whatever its status", () =>
   draw([], { model: { ...sampleCard(Date.now()), indicator: "done" }, active: false });
   expect(screen.queryByTestId("active-outline")).toBeNull();
 });
+
+it("puts only the title beside the icon; the lines below span the row from under the icon", () => {
+  draw(["projectIcon", "project", "branch", "labels", "notes"]);
+  const row = screen.getByTestId("workspace-row");
+  const icon = screen.getByText("ICON");
+  const title = screen.getByRole("button", { name: /^Open / });
+  // The icon sits inline at the start of the title's text, so a title on two lines wraps under it too.
+  expect(title.contains(icon)).toBe(true);
+  expect(icon.closest('[dir="auto"]')?.textContent).toContain("Port the status ring to React Native");
+  // Labels are a line of the row itself, not of a column beside the icon.
+  expect(screen.getByLabelText("Labels").parentElement).toBe(row);
+});

@@ -163,24 +163,24 @@ export function WorkspaceCardView({ theme, model, fields, labelLimit, titleLines
   return <CardHoverProvider value={hover}><Pressable ref={setRow} testID="workspace-row" onPress={onOpen} accessible={false} focusable={false}
     // Resting anywhere on the row opens its details, like resting on one of its fields.
     onHoverIn={() => hover.enter("row")} onHoverOut={hover.leave}
-    style={{ flexDirection: "row", alignItems: "flex-start", gap: 9, marginVertical: 1, paddingVertical: 7, paddingHorizontal: 8, borderRadius: 8,
+    // The icon sits beside the title only; the lines below start under the icon, using the row's full width.
+    style={{ gap: 3, marginVertical: 1, paddingVertical: 7, paddingHorizontal: 8, borderRadius: 8,
       zIndex: hover.open || menuOpen ? 1000 : undefined,
       backgroundColor: active ? theme.colors.surface2 : hover.pointerInside ? theme.colors.surface1 : "transparent" }}>
-    <Tip onPress={onOpen}>
-      <View accessibilityLabel={model.indicatorLabel ?? undefined} style={{ width: 18, height: 20, alignItems: "center", justifyContent: "center" }}>
-        {leading}
-      </View>
-    </Tip>
-    <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
-      {/* Details open downward on phones, so each line is layered above the lines below it. */}
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 8, minHeight: 20, zIndex: 6 }}>
+    {/* Details open downward on phones, so each line is layered above the lines below it. */}
+    <View style={{ zIndex: 6 }}>
+      <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 8, minHeight: 20 }}>
         <Tip layer={5} grow onPress={onOpen} accessibilityRole="button" accessibilityState={{ selected: active }}
           accessibilityLabel={`Open ${model.title}${model.indicatorLabel ? `, ${model.indicatorLabel}` : ""}`}>
+          {/* The icon sits inline at the start of the title, so a title on two lines wraps under it. */}
           <Text numberOfLines={titleLines === "all" ? undefined : Number(titleLines)}
-            style={{ color: theme.colors.foreground, fontSize: font.md, lineHeight: 20, fontWeight: active ? "600" : "400" }}>{model.title}</Text>
+            style={{ color: theme.colors.foreground, fontSize: font.md, lineHeight: 20, fontWeight: active ? "600" : "400" }}>
+            <View style={{ width: 18, height: 20, marginRight: 9, alignItems: "center", justifyContent: "center", verticalAlign: "top" } as object}>
+              {leading}
+            </View>{model.title}</Text>
         </Tip>
         {has("lastActivity") && model.lastActivity ? <Tip onPress={onOpen}>
-          <Text accessibilityLabel={`Last activity ${model.lastActivity}`} style={{ color: muted, fontSize: metaFont }}>{model.lastActivity}</Text>
+          <Text accessibilityLabel={`Last activity ${model.lastActivity}`} style={{ color: muted, fontSize: metaFont, lineHeight: 20 }}>{model.lastActivity}</Text>
         </Tip> : null}
         {/* The buttons float over the end of the title line instead of taking space in it, so showing them never
             narrows the title (which could wrap it onto another line) or changes the row's height. */}
@@ -200,6 +200,7 @@ export function WorkspaceCardView({ theme, model, fields, labelLimit, titleLines
           </>}
         </View> : null}
       </View>
+    </View>
       {/* Each field carries its "·" in a left gutter. The line is shifted left by one gutter and clipped, so the "·"
           before the first field of every wrapped line falls outside it and only separators between fields show. */}
       {items.length ? <View style={{ overflow: "hidden", zIndex: 4 }}><View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center",
@@ -225,7 +226,6 @@ export function WorkspaceCardView({ theme, model, fields, labelLimit, titleLines
         <Text numberOfLines={3} style={{ color: muted, fontSize: metaFont, lineHeight: 18 }}>{model.notes}</Text>
       </Tip> : null}
       {children}
-    </View>
     {/* The menu and its items count as the row for hover, so moving onto them keeps the menu open. */}
     {actions && menuOpen ? <Pressable accessibilityRole="menu" accessibilityLabel="Workspace actions menu"
       onHoverIn={() => hover.touch(true)} onHoverOut={() => hover.touch(false)}
