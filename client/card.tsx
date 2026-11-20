@@ -184,7 +184,7 @@ export function WorkspaceCardView({ theme, model, fields, labelLimit, titleLines
           {/* The icon sits inline at the start of the title, so a title on two lines wraps under it. */}
           <Text numberOfLines={titleLines === "all" ? undefined : Number(titleLines)}
             style={{ color: theme.colors.foreground, fontSize: font.md, lineHeight: 20, fontWeight: active ? "600" : "400" }}>
-            <View style={{ width: 18, height: 20, marginRight: 9, alignItems: "center", justifyContent: "center", verticalAlign: "top" } as object}>
+            <View style={{ width: 18, height: 20, marginRight: 5, alignItems: "center", justifyContent: "center", verticalAlign: "top" } as object}>
               {leading}
             </View>{model.title}</Text>
         </Tip>
