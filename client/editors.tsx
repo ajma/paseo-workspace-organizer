@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { getPaseoClient, type WorkspaceRef } from "@getpaseo/plugin/client";
 import { Text, View } from "react-native";
-import { descendants, dissolveGroup, emptyDetails, parseLinks, type Group, type Organization } from "../shared/organization";
+import { descendants, dissolveGroup, emptyDetails, mergeLinks, type GithubLink, type Group, type Organization } from "../shared/organization";
+import { parseLinkInput } from "../shared/link-resolve";
 import { Button, Choices, EditorFrame, ErrorText, Field, type Theme } from "./controls";
 import { font } from "./typography";
 
@@ -50,9 +51,12 @@ export function GroupEditor({ theme, value, revision, group, parentId, save, clo
   </EditorFrame>;
 }
 
-export function WorkspaceEditor({ theme, title, workspaceKey, value, revision, save, close, saving, saveError }: {
+// Looks bare PR or issue numbers up in the workspace's repository.
+export type ResolveNumbers = (numbers: number[]) => Promise<{ links: GithubLink[]; errors: string[] }>;
+
+export function WorkspaceEditor({ theme, title, workspaceKey, value, revision, save, close, saving, saveError, resolveNumbers }: {
   theme: Theme; title: string; workspaceKey: string; value: Organization; revision: string;
-  save: Save; close: () => void; saving: boolean; saveError: string | null;
+  save: Save; close: () => void; saving: boolean; saveError: string | null; resolveNumbers?: ResolveNumbers;
 }) {
   const [base] = useState({ value, revision });
   const original = base.value.workspaces[workspaceKey] ?? emptyDetails();
@@ -64,7 +68,16 @@ export function WorkspaceEditor({ theme, title, workspaceKey, value, revision, s
   async function submit() {
     setError(null);
     try {
-      const details = { groupId, subtitle, tags: [...new Set(tags.split(",").map((tag) => tag.trim()).filter(Boolean))], links: parseLinks(links) };
+      const parsed = parseLinkInput(links);
+      let found: GithubLink[] = [];
+      if (parsed.numbers.length) {
+        if (!resolveNumbers) { setError("Looking up a bare number needs the plugin on this workspace's host. Paste the full URL instead."); return; }
+        const result = await resolveNumbers(parsed.numbers);
+        // Keep the draft as typed until every number is found, so nothing is silently dropped.
+        if (result.errors.length) { setError(result.errors.join("\n")); return; }
+        found = result.links;
+      }
+      const details = { groupId, subtitle, tags: [...new Set(tags.split(",").map((tag) => tag.trim()).filter(Boolean))], links: mergeLinks(parsed.links, found) };
       if (await save({ ...base.value, workspaces: { ...base.value.workspaces, [workspaceKey]: details } }, base.revision)) close();
     } catch (failure) { setError(failure instanceof Error ? failure.message : String(failure)); }
   }
@@ -73,9 +86,9 @@ export function WorkspaceEditor({ theme, title, workspaceKey, value, revision, s
       options={[{ id: null, name: "Ungrouped" }, ...base.value.groups.map((item) => ({ id: item.id, name: groupPath(base.value.groups, item.id) }))]} />
     <Field theme={theme} label="Subtitle" value={subtitle} onChangeText={setSubtitle} multiline placeholder="Add notes on separate lines" />
     <Field theme={theme} label="Tags (comma separated)" value={tags} onChangeText={setTags} placeholder="review, backend" />
-    <Field theme={theme} label="GitHub links (one URL per line)" value={links} onChangeText={setLinks} multiline
-      placeholder="https://github.com/owner/repo/pull/123" />
-    <Text style={{ color: theme.colors.foregroundMuted, fontSize: font.sm }}>Add multiple PR and issue links, including links from other repositories. Paseo’s detected PR is included automatically.</Text>
+    <Field theme={theme} label="GitHub links (one URL or #number per line)" value={links} onChangeText={setLinks} multiline
+      placeholder={"https://github.com/owner/repo/pull/123\n#456"} />
+    <Text style={{ color: theme.colors.foregroundMuted, fontSize: font.sm }}>Add multiple PR and issue links, including links from other repositories. A bare number like #456 is looked up in this workspace’s repository. Paseo’s detected PR is included automatically.</Text>
     <ErrorText theme={theme} message={error ?? saveError} />
     <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
       <Button theme={theme} label={saving ? "Saving…" : "Save workspace"} primary disabled={saving} onPress={() => void submit()} />

@@ -7,6 +7,7 @@ import { OrganizerSidebar } from "../client/sidebar";
 import { CardSettingsScreen } from "../client/card-settings";
 import { agent, makeIndex, setAgents, setWorkspaces, theme, workspace } from "./host";
 import { loadShowcase, showcaseCelebration } from "./showcase";
+import { parseGithubLink } from "../shared/organization";
 import { createCelebrationStore } from "../client/celebration/store";
 import { createPresentationStore } from "../client/celebration/presentation";
 import { mountBrowserOverlay } from "../client/celebration/web";
@@ -59,7 +60,10 @@ function Preview() {
       <OrganizerSidebar theme={theme} layout={{ compact, platform: "web" }} active={{ workspace: active, agent: null }}
         navigation={{ openWorkspace: setActive, openAgent() {}, openTerminal() {}, openProject() {} }} dismiss={() => {}} index={index}
         // Paseo opens the plugin's settings screen; the preview scrolls to its copy beside the sidebar.
-        openCardSettings={() => document.querySelector('[aria-label="View"]')?.scrollIntoView({ behavior: "smooth" })} />
+        openCardSettings={() => document.querySelector('[aria-label="View"]')?.scrollIntoView({ behavior: "smooth" })}
+        // The daemon looks bare numbers up with the GitHub CLI; here, odd numbers are PRs and even ones issues.
+        resolveLinks={async ({ numbers }) => ({ errors: [], links: numbers.map((number) =>
+          parseGithubLink(`https://github.com/getpaseo/paseo/${number % 2 ? "pull" : "issues"}/${number}`)) })} />
     </View>
     {/* Screenshots show an empty workspace beside the sidebar rather than these notes and settings. */}
     {showcase ? null : width >= 600 ? <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 30, gap: 20, maxWidth: 760 }}>

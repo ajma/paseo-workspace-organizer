@@ -16,6 +16,8 @@ import { exactTag, facetKey, facetKeys, filtersSchema, hasFilters, matchesFilter
 import { SearchToolbar } from "./search-toolbar";
 import { useQueuedSave } from "./queued-save";
 import { useBracketShortcuts } from "./paseo-shortcuts";
+import { githubRepositoryOf } from "../shared/link-resolve";
+import type { GithubLink } from "../shared/organization";
 import { chooseSidebarHost, initializeSidebarHost, useSidebarHosts } from "./sidebar-placement";
 import { sidebarHostFor } from "../shared/sidebar-placement";
 import { Dropdown } from "./dropdown";
@@ -52,6 +54,8 @@ function useNow(intervalMs: number) {
 }
 
 type ReadySettings = Extract<ReturnType<typeof useSettings<typeof organization.schema>>, { status: "ready" }>;
+type ResolveLinks = (input: { hostId: string; workspaceId: string; repository: string | null; numbers: number[] }) =>
+  Promise<{ links: GithubLink[]; errors: string[] }>;
 type Editor = { kind: "group"; group?: Group; parentId: string | null } | { kind: "workspace"; key: string; title: string }
   | { kind: "rename"; reference: WorkspaceRef; title: string; defaultName: string } | null;
 
@@ -139,7 +143,8 @@ function WorkspaceRow({ reference, theme, navigation, active, now, details, dete
 }
 
 export function OrganizerSidebar(props: PluginSidebarViewProps & { index: WorkspaceIndex; icons?: ProjectIconStore; labelColors?: LabelColorStore;
-  openCardSettings?: () => void; remoteWorkspaces?: RemoteWorkspaces; openInBrowser?: (url: string, workspace: WorkspaceRef) => void }) {
+  openCardSettings?: () => void; remoteWorkspaces?: RemoteWorkspaces; openInBrowser?: (url: string, workspace: WorkspaceRef) => void;
+  resolveLinks?: ResolveLinks }) {
   const settings = useSettings(organization);
   const device = useSettings(preferences);
   // Per-device preferences, with quick successive changes saved one after another.
@@ -199,7 +204,7 @@ export function OrganizerSidebar(props: PluginSidebarViewProps & { index: Worksp
     displayError={device.status === "invalid" || device.status === "error" ? device.error : device.saveError} />;
 }
 
-function WorkspaceTree({ theme, navigation, active, layout, settings, runtime, collapsed, toggleCollapsed, setCollapsed, canCollapse, sort, setSort, canSort, groupBy, setGroupBy, toolbar, hostChoice, stickyHeaders, displayError, index, icons, labelColors, card, openCardSettings, cardMode, remoteWorkspaces, openInBrowser }: PluginSidebarViewProps & {
+function WorkspaceTree({ theme, navigation, active, layout, settings, runtime, collapsed, toggleCollapsed, setCollapsed, canCollapse, sort, setSort, canSort, groupBy, setGroupBy, toolbar, hostChoice, stickyHeaders, displayError, index, icons, labelColors, card, openCardSettings, cardMode, remoteWorkspaces, openInBrowser, resolveLinks }: PluginSidebarViewProps & {
   settings: ReadySettings; runtime: IndexEvent | null; collapsed: string[]; toggleCollapsed: (id: string) => void;
   setCollapsed: (ids: string[], collapse: boolean) => void;
   sort: SortMode; setSort: (sort: SortMode) => void; canSort: boolean; groupBy: GroupBy; setGroupBy: (groupBy: GroupBy) => void;
@@ -207,7 +212,7 @@ function WorkspaceTree({ theme, navigation, active, layout, settings, runtime, c
   hostChoice?: { hosts: { id: string; label: string }[]; current: string | null; choose: (id: string) => void };
   stickyHeaders: boolean;
   canCollapse: boolean; displayError: string | null; index: WorkspaceIndex; icons?: ProjectIconStore; labelColors?: LabelColorStore; card: CardConfig; openCardSettings?: () => void;
-  cardMode: { ready: boolean; value: CardMode; set: (mode: CardMode) => void }; remoteWorkspaces?: RemoteWorkspaces;
+  cardMode: { ready: boolean; value: CardMode; set: (mode: CardMode) => void }; remoteWorkspaces?: RemoteWorkspaces; resolveLinks?: ResolveLinks;
   openInBrowser?: (url: string, workspace: WorkspaceRef) => void;
 }) {
   const labelList = useLabelColors(labelColors);
@@ -504,13 +509,25 @@ function WorkspaceTree({ theme, navigation, active, layout, settings, runtime, c
     : groupBy === "none" ? [] : buckets.map((bucket) => `${groupBy}:${bucket.key}`);
   const anyOpen = groupIds.some((id) => !collapsed.includes(id));
   // No background of its own: the sidebar shows Paseo's sidebar color behind it.
+  // Bare PR or issue numbers are looked up in the workspace's repository: this daemon's host finds it from the
+  // workspace's git remote; for another host's workspace the sidebar reads it from that host's workspace list.
+  const resolverFor = (key: string) => {
+    if (!resolveLinks) return undefined;
+    const [hostId, workspaceId] = JSON.parse(key) as [string, string];
+    return (numbers: number[]) => {
+      const elsewhere = hostId !== runtime?.hostId ? remoteWorkspaces?.get(hostId, workspaceId) as
+        { gitRuntime?: { remoteUrl?: string | null } | null; project?: { checkout?: { remoteUrl?: string | null } | null } | null } | undefined : undefined;
+      const repository = githubRepositoryOf(elsewhere?.gitRuntime?.remoteUrl ?? elsewhere?.project?.checkout?.remoteUrl);
+      return resolveLinks({ hostId, workspaceId, repository, numbers });
+    };
+  };
   // The group and workspace editors float over the list below the toolbar, so they show wherever the list is scrolled.
   const editorPopover = editor?.kind === "group"
     ? { title: editor.group ? "Edit group" : "New group", element: <GroupEditor key={`group-editor:${editor.group?.id ?? `new-${editor.parentId}`}`} theme={theme} value={value}
       revision={settings.revision} group={editor.group} parentId={editor.parentId} save={save} close={closeEditor} saving={settings.saving} saveError={settings.saveError} /> }
     : editor?.kind === "workspace"
       ? { title: `Organize ${editor.title}`, element: <WorkspaceEditor key={`workspace-editor:${editor.key}`} theme={theme} title={editor.title} workspaceKey={editor.key}
-        value={value} revision={settings.revision} save={save} close={closeEditor} saving={settings.saving} saveError={settings.saveError} /> }
+        value={value} revision={settings.revision} save={save} close={closeEditor} saving={settings.saving} saveError={settings.saveError} resolveNumbers={resolverFor(editor.key)} /> }
       : editor?.kind === "rename"
         ? { title: "Rename workspace", element: <RenameEditor key={`rename:${editor.reference.key}`} theme={theme} reference={editor.reference}
           title={editor.title} defaultName={editor.defaultName} close={closeEditor} /> }

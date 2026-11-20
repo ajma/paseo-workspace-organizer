@@ -13,6 +13,7 @@ import { disposeProviderCatalogs } from "./client/agents";
 import { CardSettingsScreen } from "./client/card-settings";
 import { contributeCelebration } from "./client/celebration/contribute";
 import { placeSidebar } from "./client/sidebar-placement";
+import { resolveLinkNumbers } from "./shared/link-resolve";
 import { readLocalHostIds, readStoredSidebarHost } from "./client/web";
 
 // Opens a workspace for Command Center results and merge celebrations. Without a host it opens on this screen's host.
@@ -59,6 +60,7 @@ export default function contribute(client: PluginClientContext) {
     description: "Nested custom groups with multiline notes, tags, PRs and issues",
     Component: (props) => <OrganizerSidebar {...props} index={index} icons={icons} labelColors={labelColors} remoteWorkspaces={remoteWorkspaces}
       openCardSettings={() => client.openSettings("cards")}
+      resolveLinks={(input) => client.rpc(resolveLinkNumbers, input)}
       openInBrowser={(url, workspace) => client.openScreen({ screenId: "open-link", params: { url, workspaceId: workspace.id, serverId: workspace.hostId } })} />,
   }) });
   const removeCelebration = contributeCelebration(client, {
