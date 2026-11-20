@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Icon } from "@getpaseo/plugin/client/ui";
 import { getPaseoClient, type WorkspaceRef } from "@getpaseo/plugin/client";
 import { Pressable, Text, View } from "react-native";
-import { descendants, dissolveGroup, emptyDetails, mergeLinks, type GithubLink, type Group, type Organization } from "../shared/organization";
+import { descendants, dissolveGroup, emptyDetails, mergeLinks, orderLinks, type GithubLink, type Group, type Organization } from "../shared/organization";
 import { parseLinkInput } from "../shared/link-resolve";
 import { Button, Choices, EditorFrame, ErrorText, Field, type Theme } from "./controls";
 import { font } from "./typography";
@@ -151,14 +151,14 @@ export function WorkspaceEditor({ theme, title, workspaceKey, value, revision, s
     <View style={{ gap: 5 }}>
       <Text style={{ color: theme.colors.foregroundMuted, fontSize: font.sm }}>GitHub links</Text>
       <View accessibilityLabel="Linked PRs and issues" style={{ gap: 2 }}>
-        {links.map((link) => <View key={link.url} style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 3 }}>
+        {orderLinks(links).map((link) => <View key={link.url} style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 3 }}>
           <LinkName link={link} theme={theme} state={statuses[link.url]?.state} />
           <Pressable accessibilityRole="button" accessibilityLabel={`Remove ${linkLabel(link)}`} disabled={saving}
             onPress={() => setLinks(links.filter((item) => item.url !== link.url))} style={{ paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
             <Icon name="X" size={font.sm} color={theme.colors.foregroundMuted} />
           </Pressable>
         </View>)}
-        {automatic.map((link) => <View key={link.url} style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 3 }}>
+        {orderLinks(automatic).map((link) => <View key={link.url} style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 3 }}>
           <LinkName link={link} theme={theme} state={statuses[link.url]?.state} />
           <Text style={{ color: theme.colors.foregroundMuted, fontSize: font.xs }}>found automatically</Text>
         </View>)}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { descendants, dissolveGroup, emptyDetails, matchesSearch, mergeLinks, moveInOrder, organizationSchema,
+import { descendants, dissolveGroup, emptyDetails, matchesSearch, mergeLinks, moveInOrder, orderLinks, organizationSchema,
   parseGithubLink, parseLinks, searchTerms, workspaceKey } from "../shared/organization";
 
 describe("workspace organization", () => {
@@ -36,5 +36,15 @@ describe("workspace organization", () => {
     const terms = searchTerms("Fix reconnect", "fix/socket", ["backend"], { ...emptyDetails(), subtitle: "First line\nNext line" }, links, ["Work / Urgent"]);
     for (const query of ["42", "#87", "PR #87", "issue 99", "o/r#99", "backend", "next line", "urgent"]) expect(matchesSearch(query, terms), query).toBe(true);
     expect(matchesSearch("#1000", terms)).toBe(false);
+  });
+});
+
+describe("link order", () => {
+  it("puts issues before PRs, each by number, then by repository", () => {
+    const link = (kind: "pr" | "issue", repository: string, number: number) =>
+      ({ kind, repository, number, url: `https://github.com/${repository}/${kind === "pr" ? "pull" : "issues"}/${number}` });
+    const ordered = orderLinks([link("pr", "o/r", 9), link("issue", "o/r", 30), link("pr", "o/r", 2), link("issue", "o/z", 4), link("issue", "o/a", 4)]);
+    expect(ordered.map((item) => `${item.kind} ${item.repository}#${item.number}`)).toEqual(
+      ["issue o/a#4", "issue o/z#4", "issue o/r#30", "pr o/r#2", "pr o/r#9"]);
   });
 });

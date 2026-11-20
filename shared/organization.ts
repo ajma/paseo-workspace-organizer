@@ -29,6 +29,11 @@ export function mergeLinks(...lists: readonly (readonly GithubLink[])[]): Github
   return [...new Map(lists.flat().map((link) => [link.url.toLowerCase(), link])).values()];
 }
 
+// The order links are shown in: issues before PRs, each by number, then by repository.
+export function orderLinks<T extends Pick<GithubLink, "kind" | "number" | "repository">>(links: readonly T[]): T[] {
+  return [...links].sort((a, b) => (a.kind === b.kind ? 0 : a.kind === "issue" ? -1 : 1) || a.number - b.number || a.repository.localeCompare(b.repository));
+}
+
 export function parseLinks(text: string): GithubLink[] {
   return mergeLinks(text.split(/\s+/).filter(Boolean).map(parseGithubLink));
 }

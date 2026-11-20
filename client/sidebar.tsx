@@ -4,7 +4,7 @@ import {
 } from "@getpaseo/plugin/client";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Platform, Pressable, ScrollView, Text, View } from "react-native";
-import { descendants, preferences, dissolveGroup, emptyDetails, matchesSearch, mergeLinks, organization, placeGroup, placeWorkspace, searchTerms,
+import { descendants, preferences, dissolveGroup, emptyDetails, matchesSearch, mergeLinks, orderLinks, organization, placeGroup, placeWorkspace, searchTerms,
   type Group, type Organization } from "../shared/organization";
 import { prBucket, prBuckets, type GroupBy } from "../shared/grouping";
 import { useDragDrop, useDragging, useTargetGroup, type DragPayload, type DropPosition } from "./drag";
@@ -110,7 +110,7 @@ function WorkspaceRow({ reference, theme, navigation, active, now, details, dete
       source: workspace.labels.includes(name) ? "label" as const : "tag" as const,
       color: labelList.find((label) => label.name.toLowerCase() === name.toLowerCase())?.color ?? tagGroupColor(tagName(name), labelList, tagName) })),
     notes: details.subtitle || null,
-    links: mergeLinks(detectedLinks, details.links).map((link) => ({ ...link, status: githubStatusLabel(github[link.url]) || null,
+    links: orderLinks(mergeLinks(detectedLinks, details.links)).map((link) => ({ ...link, status: githubStatusLabel(github[link.url]) || null,
       tone: linkTone(github[link.url]), hint: [githubStatusLabel(github[link.url]), github[link.url]?.error].filter(Boolean).join(". "),
       state: github[link.url]?.state, checks: github[link.url]?.checks ?? null, review: github[link.url]?.review ?? null })),
     subtasks: { running: agents.running, done: agents.done, failed: agents.failed },

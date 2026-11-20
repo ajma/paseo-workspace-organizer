@@ -39,9 +39,10 @@ it("renders multiline subtitles, tags and each PR and issue link", () => {
   show();
   expect(screen.getByText(/Custom groups and a calmer workspace list/).textContent).toContain("\nKeep tags");
   expect(screen.getByText("in review")).toBeTruthy();
-  expect(screen.getAllByRole("link").map((element) => element.getAttribute("aria-label"))).toEqual(expect.arrayContaining([
-    "Open PR getpaseo/paseo#412", "Open PR getpaseo/paseo#427", "Open issue getpaseo/paseo#385",
-  ]));
+  // Issues before PRs, each in number order, whatever order they were linked in.
+  expect(within(rowOf("Restructure workspace navigation")).getAllByRole("link").map((element) => element.getAttribute("aria-label"))).toEqual([
+    "Open issue getpaseo/paseo#385", "Open PR getpaseo/paseo#412", "Open PR getpaseo/paseo#427",
+  ]);
 });
 it("shows each GitHub link like Paseo's list: number, state when not open, and CI result", () => {
   show();
@@ -198,12 +199,12 @@ it("lists a workspace's links with a remove button each, and shows ones found au
   rowMenu("Restructure workspace navigation", "Edit details");
   const list = screen.getByLabelText("Linked PRs and issues");
   expect(within(list).getAllByRole("button", { name: /^Remove / }).map((button) => button.getAttribute("aria-label"))).toEqual([
-    "Remove PR getpaseo/paseo#412", "Remove PR getpaseo/paseo#427", "Remove issue getpaseo/paseo#385"]);
+    "Remove issue getpaseo/paseo#385", "Remove PR getpaseo/paseo#412", "Remove PR getpaseo/paseo#427"]);
   // Each shows the row's PR or issue icon, not a word, before its repository and number.
   expect(within(list).getAllByText(/^getpaseo\/paseo#\d+$/).map((item) => item.textContent)).toEqual([
-    "getpaseo/paseo#412", "getpaseo/paseo#427", "getpaseo/paseo#385", "getpaseo/paseo#500"]);
+    "getpaseo/paseo#385", "getpaseo/paseo#412", "getpaseo/paseo#427", "getpaseo/paseo#500"]);
   expect(within(list).getAllByLabelText(/^(Pull request|Issue)$/).map((icon) => icon.getAttribute("aria-label"))).toEqual([
-    "Pull request", "Pull request", "Issue", "Pull request"]);
+    "Issue", "Pull request", "Pull request", "Pull request"]);
   // Found automatically (Paseo's detected PR): listed, but not removable here.
   expect(within(list).getByText(/getpaseo\/paseo#500/)).toBeTruthy();
   expect(within(list).queryByRole("button", { name: "Remove PR getpaseo/paseo#500" })).toBeNull();
