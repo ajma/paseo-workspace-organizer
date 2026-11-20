@@ -32,7 +32,10 @@ When you run a dozen agents at once, a flat list of workspaces stops working. **
 - **Nested groups, as deep as you like.** Drag workspaces into groups, drag groups into groups, and drag to reorder.
 - **Pick the group up front.** Paseo's **New workspace** screen gets a **Group** field beside Host and Isolation, so a new workspace lands where it belongs.
 - **Instant automatic grouping.** One click regroups everything by **Host**, **Project** or **PR status**, or shows one flat list with **None**, then back to your own groups.
+- **Color-code groups.** Pick red, orange, yellow, green, teal, blue, purple, pink or gray for a group, as a tint that works in light and dark themes, on its header alone or across everything in it.
 - **Collapse everything in one press**, with smooth sliding groups and **sticky headers** that stay pinned while you scroll.
+
+<img src="assets/screenshots/edit-group.png" width="360" alt="Edit group with the group's name, parent group and a row of color swatches">
 
 ### 👀 See everything at a glance
 
@@ -41,7 +44,7 @@ When you run a dozen agents at once, a flat list of workspaces stops working. **
 - **Rich workspace rows** show agent and model, project, branch with git status, labels in their Paseo colors, linked PRs and issues with CI results, subagents, run timer and last activity.
 - **Simple, Full or Custom views.** Pick exactly which fields appear.
 - **Hover for the whole story.** Rest on a row for half a second and a details panel lists every field in full, with clickable links.
-- **Live status.** Running, waiting and failed rows carry a status-colored bar down their left edge; working rows glow softly and their bar pulses, CI checks spin while they run, and the open workspace is always marked.
+- **Live status.** Running, waiting and failed rows carry a status-colored bar down their left edge; working rows glow softly and their bar pulses, CI checks spin while they run, and the open workspace is outlined. When it's scrolled out of view or inside a collapsed group, a small button at the bottom of the sidebar takes you back to it.
 
 ### 🔎 Find anything fast
 
@@ -59,7 +62,7 @@ When you run a dozen agents at once, a flat list of workspaces stops working. **
 - **Back and Forward** through the workspaces you've opened, like a browser: buttons, **⌘← / ⌘→**, your mouse's side buttons, or **⌘[ / ⌘]**, which a setting takes over from Paseo's Previous and Next workspace.
 - **Safe archiving.** Confirm with a red Archive button, or press **⌘⇧⌫** twice, and the row slides away.
 - **Links open where you work.** PRs and issues open as a Paseo browser tab in the workspace, or in your default browser if you prefer (a setting).
-- **Quick actions** in every row's ⋯ menu: edit notes, tags and links, rename, copy path or branch, pin.
+- **Quick actions** in every row's ⋯ menu: edit notes, tags and links (a list with a remove button for each, issues before PRs), rename, copy path or branch, pin.
 
 ### 🎉 Celebrate shipped work
 

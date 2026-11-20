@@ -59,7 +59,7 @@ export function loadShowcase() {
       { id: "checkout", name: "Checkout", parentId: "sprint" },
       { id: "payments", name: "Payments", parentId: "sprint", color: "green" },
       { id: "review", name: "👀 Ready for review", parentId: null, color: "yellow" },
-      { id: "experiments", name: "🧪 Experiments", parentId: null },
+      { id: "experiments", name: "🧪 Experiments", parentId: null, color: "purple" },
     ],
     workspaceOrder: [key("apple-pay"), key("cart-test"), key("invoices-v2", "build-box"), key("webhooks")],
     workspaces: {
