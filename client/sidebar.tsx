@@ -77,7 +77,7 @@ function WithAgent({ agent, hostId, children }: { agent: AgentRef; hostId: strin
   return <>{children(snapshot ? { ...agentLabels(catalog, snapshot), modelId: snapshot.model, status: snapshot.status } : null)}</>;
 }
 
-function WorkspaceRow({ reference, theme, navigation, active, now, details, detectedLinks, git, github, hostLabel, hostIconOnly, hostColor, card, icons, installationHostId, labelList, onEdit, onRename, drag, openInBrowser, rowRef }: {
+function WorkspaceRow({ reference, theme, navigation, active, now, details, detectedLinks, git, github, hostLabel, hostIconOnly, hostColor, card, icons, installationHostId, labelList, onEdit, onRename, drag, openInBrowser, rowRef, backdrop }: {
   reference: WorkspaceRef; theme: Theme; navigation: PluginSidebarViewProps["navigation"]; active: string | undefined; now: number;
   details: ReturnType<typeof emptyDetails>; detectedLinks: ReturnType<typeof mergeLinks>; git: CardModel["git"]; hostLabel?: string;
   hostIconOnly: boolean; hostColor: IdentityColor | null;
@@ -87,6 +87,8 @@ function WorkspaceRow({ reference, theme, navigation, active, now, details, dete
   openInBrowser?: (url: string, workspace: WorkspaceRef) => void;
   // The open workspace's row hands its element to the Current workspace button.
   rowRef?: (node: unknown) => void;
+  // The solid color under the row inside a colored group.
+  backdrop?: string;
 }) {
   const workspace = useWorkspace(reference);
   const agents = useWorkspaceAgents(reference);
@@ -118,7 +120,7 @@ function WorkspaceRow({ reference, theme, navigation, active, now, details, dete
   };
   const render = (agent: CardModel["agent"]) => <WorkspaceCardView theme={theme} model={{ ...base, agent }} fields={card.fields}
     labelLimit={card.labelLimit} titleLines={card.titleLines} active={active === reference.key}
-    nodeRef={nodeRef} dropLine={dnd.position === "inside" ? null : dnd.position}
+    nodeRef={nodeRef} backdrop={backdrop} dropLine={dnd.position === "inside" ? null : dnd.position}
     projectIcon={<ProjectIconView project={workspace.project} store={icons} installationHostId={installationHostId} size={font.md} color={theme.colors.foregroundMuted} />}
     onOpen={() => navigation.openWorkspace(reference)}
     actions={{
@@ -391,8 +393,10 @@ function WorkspaceTree({ theme, navigation, active, layout, settings, runtime, c
       },
     };
   }
-  function renderRows(rows: readonly WorkspaceRef[], bucket: string, groupId: string | null | undefined) {
+  // `tints`: the whole-group tints of the colored groups the rows sit in, which hovered and open rows keep showing.
+  function renderRows(rows: readonly WorkspaceRef[], bucket: string, groupId: string | null | undefined, tints: readonly string[] = []) {
     const siblings = rows.map((row) => row.key);
+    const backdrop = tints.length ? blend(listBackground ?? theme.colors.surface0, tints) : undefined;
     return rows.map((ref) => <WorkspaceRow key={ref.key} reference={ref} theme={theme} navigation={navigation} now={now} openInBrowser={openInBrowser}
       active={active.workspace?.key} details={value.workspaces[ref.key] ?? emptyDetails()}
       github={githubFor(ref.hostId, ref.id)} card={card} icons={icons} installationHostId={runtime?.hostId} labelList={labelList}
@@ -402,7 +406,7 @@ function WorkspaceTree({ theme, navigation, active, layout, settings, runtime, c
       hostIconOnly={hostBadgeFor(ref.hostId) === "icon"} hostColor={hostAppearance.get(ref.hostId)?.color ?? null}
       onEdit={(title) => setEditor({ kind: "workspace", key: ref.key, title })}
       onRename={(title, defaultName) => setEditor({ kind: "rename", reference: ref, title, defaultName })}
-      drag={rowDrag(ref.key, bucket, siblings, groupId)} rowRef={ref.key === active.workspace?.key ? jumpToActive.rowRef : undefined} />);
+      drag={rowDrag(ref.key, bucket, siblings, groupId)} rowRef={ref.key === active.workspace?.key ? jumpToActive.rowRef : undefined} backdrop={backdrop} />);
   }
   const groupMenu = (group: Group) => busy ? [] : [
     { label: "Edit group", run: () => setEditor({ kind: "group", group, parentId: group.parentId }) },
@@ -416,7 +420,8 @@ function WorkspaceTree({ theme, navigation, active, layout, settings, runtime, c
       const isCollapsed = !searching && collapsed.includes(group.id);
       const { header, body } = tintsFor(group);
       const sticky = stickyAt(depth);
-      const inner = () => <>{renderGroups(group.id, depth + 1, body ? [...tints, body] : tints)}{renderRows(members(group.id), group.id, group.id)}</>;
+      const inside = body ? [...tints, body] : tints;
+      const inner = () => <>{renderGroups(group.id, depth + 1, inside)}{renderRows(members(group.id), group.id, group.id, inside)}</>;
       // Earlier groups sit above later ones so a row's menu is never covered by the next group.
       return <View key={group.id} style={{ zIndex: siblings.length - position + 1, marginLeft: depth === 0 ? 0 : 10, marginBottom: 6,
         borderLeftWidth: depth ? 1 : 0, borderLeftColor: theme.colors.border, ...dropHighlight(group.id) }}>
@@ -477,7 +482,7 @@ function WorkspaceTree({ theme, navigation, active, layout, settings, runtime, c
         ...(isCollapsed ? [] : flatGroups(group.id, depth + 1, inside)),
         { key: `rows:${group.id}`, sticky: false, element: <View testID={body ? "group-body-tint" : undefined}
           style={{ ...indent(depth), marginBottom: 6, ...(inside.length ? { backgroundColor: blend(theme.colors.surface0, inside) } : {}) }}>
-          <Collapsible open={!isCollapsed} animate={!searching}>{() => renderRows(members(group.id), group.id, group.id)}</Collapsible>
+          <Collapsible open={!isCollapsed} animate={!searching}>{() => renderRows(members(group.id), group.id, group.id, inside)}</Collapsible>
         </View> },
       ];
     });

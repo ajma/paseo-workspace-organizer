@@ -7,6 +7,7 @@ import { cardFields, cardPresets, type CardField } from "../shared/cards";
 import { theme } from "../preview/host";
 import { WORKING_GLOW } from "../client/motion";
 import { linkLook } from "../client/card-fields";
+import { blend, raise } from "../shared/group-colors";
 
 const draw = (fields: readonly CardField[], extra: Partial<Parameters<typeof WorkspaceCardView>[0]> = {}) =>
   render(<WorkspaceCardView theme={theme} model={sampleCard(Date.now())} fields={new Set(fields)} labelLimit="all" titleLines="2"
@@ -269,4 +270,18 @@ it("puts only the title beside the icon; the lines below span the row from under
   expect(icon.closest('[dir="auto"]')?.textContent).toContain("Port the status ring to React Native");
   // Labels are a line of the row itself, not of a column beside the icon.
   expect(screen.getByLabelText("Labels").parentElement).toBe(row);
+});
+
+it("lets a colored group's tint show through a hovered or open row", () => {
+  const toRgb = (color: string) => { const probe = document.createElement("div"); probe.style.backgroundColor = color; return probe.style.backgroundColor; };
+  const backdrop = "rgb(30, 50, 40)";
+  const view = draw([], { active: true, backdrop });
+  const row = screen.getByTestId("workspace-row");
+  // Not the theme's plain raised color, but the backdrop raised by the same step.
+  expect(row.style.backgroundColor).not.toBe(toRgb(theme.colors.surface2));
+  expect(row.style.backgroundColor).toBe(toRgb(blend(backdrop, [raise(theme.colors.surface0, theme.colors.surface2, theme.colors.foreground)!])));
+  view.unmount();
+  // Without a backdrop the theme's own colors are used.
+  draw([], { active: true });
+  expect(screen.getByTestId("workspace-row").style.backgroundColor).toBe(toRgb(theme.colors.surface2));
 });

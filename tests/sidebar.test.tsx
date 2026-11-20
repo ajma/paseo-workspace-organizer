@@ -981,6 +981,12 @@ it("edits a group from Edit group, including its color, which tints its header o
   expect(within(headerOf("Later")).getByTestId("group-tint")).toBeTruthy();
   expect(screen.getAllByTestId("group-body-tint")).toHaveLength(1);
   expect(screen.getByTestId("group-body-tint").contains(rowOf("Polish compact sidebar layout"))).toBe(true);
+  // A hovered row keeps the group's color rather than the theme's plain gray.
+  fireEvent.pointerEnter(rowOf("Polish compact sidebar layout"), { pointerType: "mouse" });
+  const plain = document.createElement("div"); plain.style.backgroundColor = theme.colors.surface1;
+  await waitFor(() => expect(rowOf("Polish compact sidebar layout").style.backgroundColor).toMatch(/^rgb/));
+  expect(rowOf("Polish compact sidebar layout").style.backgroundColor).not.toBe(plain.style.backgroundColor);
+  fireEvent.pointerLeave(rowOf("Polish compact sidebar layout"), { pointerType: "mouse" });
   // The setting to color just the header.
   setDocument("preferences", { ...getDocument("preferences"), groupColorFill: "header" });
   await waitFor(() => expect(screen.queryAllByTestId("group-body-tint")).toEqual([]));

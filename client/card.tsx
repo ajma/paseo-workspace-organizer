@@ -9,6 +9,7 @@ import { identityText, identityTint, isDarkSurface } from "../shared/identity-co
 import { detailExtras, fieldItems, palette, statusColor, type CardModel, type FieldItem, type Piece } from "./card-fields";
 import type { Theme } from "./controls";
 import { pascal } from "./lucide";
+import { blend, raise } from "../shared/group-colors";
 import { CardHoverProvider, Tip, useCardHover, useCardHoverControls } from "./tooltip";
 import { useDragging } from "./drag";
 import { ARCHIVE_CONFIRM_MS } from "../shared/archive";
@@ -88,11 +89,13 @@ function IconButton({ theme, icon, label, onPress, children, danger = false }: {
 }
 
 export function WorkspaceCardView({ theme, model, fields, labelLimit, titleLines, active = false, projectIcon, onOpen, onOpenLink, actions, children,
-  nodeRef, dropLine = null }: {
+  nodeRef, dropLine = null, backdrop }: {
   theme: Theme; model: CardModel; fields: ReadonlySet<CardField>; labelLimit: LabelLimit; titleLines: TitleLines;
   active?: boolean; projectIcon?: ReactNode; onOpen?: () => void; onOpenLink?: (url: string) => void; actions?: CardActions; children?: ReactNode;
   // Drag and drop: the row's element for the sidebar to drag and drop on, and where a drop would land.
   nodeRef?: (node: unknown) => void; dropLine?: "before" | "after" | null;
+  // The solid color the row sits on when it isn't the sidebar's own, as inside a colored group.
+  backdrop?: string;
 }) {
   const has = (field: CardField) => fields.has(field);
   const { muted } = palette(theme);
@@ -150,6 +153,12 @@ export function WorkspaceCardView({ theme, model, fields, labelLimit, titleLines
   }, [hover.open, floating]);
 
   const items = fieldItems(model, theme, { fields, full: false, now: Date.now() });
+  // A hovered or open row takes the theme's step up from its surface; over a colored group it takes the same step
+  // over the group's tint, so the color still shows. Solid either way, as the hover buttons must hide the title.
+  const raised = (target: string) => {
+    const step = backdrop ? raise(theme.colors.surface0, target, theme.colors.foreground) : null;
+    return backdrop && step ? blend(backdrop, [step]) : target;
+  };
   const labels = has("labels") ? limitLabels(model.labels, labelLimit) : { shown: [], hidden: 0 };
   const color = statusColor(theme, model.indicator);
   const badge = model.indicator !== "done";
@@ -166,7 +175,7 @@ export function WorkspaceCardView({ theme, model, fields, labelLimit, titleLines
     // The icon sits beside the title only; the lines below start under the icon, using the row's full width.
     style={{ gap: 3, marginVertical: 1, paddingVertical: 7, paddingHorizontal: 8, borderRadius: 8,
       zIndex: hover.open || menuOpen ? 1000 : undefined,
-      backgroundColor: active ? theme.colors.surface2 : hover.pointerInside ? theme.colors.surface1 : "transparent" }}>
+      backgroundColor: active ? raised(theme.colors.surface2) : hover.pointerInside ? raised(theme.colors.surface1) : "transparent" }}>
     {/* Details open downward on phones, so each line is layered above the lines below it. */}
     <View style={{ zIndex: 6 }}>
       <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 8, minHeight: 20 }}>
@@ -186,7 +195,7 @@ export function WorkspaceCardView({ theme, model, fields, labelLimit, titleLines
             narrows the title (which could wrap it onto another line) or changes the row's height. */}
         {/* Above the title, which spans the line, so presses reach the buttons. */}
         {showActions ? <View style={{ position: "absolute", right: 0, top: 0, height: 20, flexDirection: "row", alignItems: "center", gap: 4,
-          paddingLeft: 6, zIndex: 10, backgroundColor: active ? theme.colors.surface2 : theme.colors.surface1 }}>
+          paddingLeft: 6, zIndex: 10, backgroundColor: active ? raised(theme.colors.surface2) : raised(theme.colors.surface1) }}>
           {confirmArchive ? <>
             <IconButton theme={theme} label="Cancel archive" onPress={() => setConfirmArchive(false)}>
               <Text style={{ color: theme.colors.foregroundMuted, fontSize: font.xs, fontWeight: "500" }}>Cancel</Text>

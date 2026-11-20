@@ -47,3 +47,13 @@ export function blend(background: string, tints: readonly string[]): string {
   }
   return `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`;
 }
+
+// The see-through overlay that takes `base` to `target` by moving toward `toward` (the theme's step from its surface
+// to a raised one), so a hovered or open row can take the same step over a group's tint instead of hiding it.
+export function raise(base: string, target: string, toward: string): string | null {
+  const [from, to, by] = [parse(base), parse(target), parse(toward)];
+  if (!from || !to || !by) return null;
+  const steps = [0, 1, 2].filter((i) => by[i] !== from[i]).map((i) => (to[i] - from[i]) / (by[i] - from[i]));
+  const alpha = steps.length ? Math.min(1, Math.max(0, steps.reduce((sum, step) => sum + step, 0) / steps.length)) : 0;
+  return `rgba(${by[0]}, ${by[1]}, ${by[2]}, ${Math.round(alpha * 1000) / 1000})`;
+}

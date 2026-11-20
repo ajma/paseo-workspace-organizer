@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { blend, groupColorHex, groupColorNames, groupTint, GROUP_TINT } from "../shared/group-colors";
+import { blend, groupColorHex, groupColorNames, groupTint, GROUP_TINT, raise } from "../shared/group-colors";
 import { organization, organizationSchema, preferences } from "../shared/organization";
 
 it("tints a group's header more than its workspaces, and more on dark surfaces where the same tint reads weaker", () => {
@@ -53,4 +53,13 @@ it("adds the group color fill to device preferences (version 2 to 3), coloring t
   expect(preferences.version).toBe(3);
   const migrated = await preferences.migrate!({ collapsed: ["x"], sidebarHost: "srv" }, 2) as Record<string, unknown>;
   expect(migrated).toMatchObject({ collapsed: ["x"], sidebarHost: "srv", groupColorFill: "group" });
+});
+
+it("raises a row by the same step the theme takes from its surface to a raised one, over whatever tint it sits on", () => {
+  // A white overlay at 20% turns black into rgb(51, 51, 51).
+  expect(raise("#000000", "#333333", "#ffffff")).toBe("rgba(255, 255, 255, 0.2)");
+  expect(blend("#000000", [raise("#000000", "#333333", "#ffffff")!])).toBe("rgb(51, 51, 51)");
+  // Over a tinted backdrop the same step keeps the tint's hue.
+  expect(blend("rgb(0, 40, 0)", [raise("#000000", "#333333", "#ffffff")!])).toBe("rgb(51, 83, 51)");
+  expect(raise("transparent", "#333333", "#ffffff")).toBeNull();
 });
