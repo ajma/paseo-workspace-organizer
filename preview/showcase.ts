@@ -55,10 +55,10 @@ export function loadShowcase() {
   const details = (groupId: string | null, more: Partial<ReturnType<typeof emptyDetails>> = {}) => ({ ...emptyDetails(), groupId, ...more });
   changeOrganization((values) => ({ ...values,
     groups: [
-      { id: "sprint", name: "🚀 This sprint", parentId: null },
+      { id: "sprint", name: "🚀 This sprint", parentId: null, color: "blue" },
       { id: "checkout", name: "Checkout", parentId: "sprint" },
-      { id: "payments", name: "Payments", parentId: "sprint" },
-      { id: "review", name: "👀 Ready for review", parentId: null },
+      { id: "payments", name: "Payments", parentId: "sprint", color: "green" },
+      { id: "review", name: "👀 Ready for review", parentId: null, color: "yellow" },
       { id: "experiments", name: "🧪 Experiments", parentId: null },
     ],
     workspaceOrder: [key("apple-pay"), key("cart-test"), key("invoices-v2", "build-box"), key("webhooks")],

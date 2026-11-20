@@ -85,7 +85,7 @@ it("starts from a pick saved on this device before any sidebar has drawn", () =>
 });
 
 it("keeps existing device preferences when adding the picked host (version 1 to 2)", async () => {
-  expect(preferences.version).toBe(2);
+  expect(preferences.version).toBeGreaterThanOrEqual(2);
   const migrated = await preferences.migrate!({ collapsed: ["later"], sort: "name", stickyHeaders: false }, 1) as Record<string, unknown>;
   expect(migrated).toMatchObject({ collapsed: ["later"], sort: "name", stickyHeaders: false, sidebarHost: null });
 });

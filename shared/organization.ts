@@ -3,6 +3,7 @@ import { sortModes } from "./sort";
 import { titleLineOptions } from "./cards";
 import { groupByModes } from "./grouping";
 import { z } from "zod";
+import { groupColorFills, groupColorSchema } from "./group-colors";
 import { savedSearchSchema } from "./search";
 
 export const githubLinkSchema = z.object({
@@ -36,6 +37,8 @@ export const groupSchema = z.object({
   id: z.string().min(1),
   name: z.string().trim().min(1).max(100),
   parentId: z.string().min(1).nullable(),
+  // Added in version 2; a missing or unknown color means none.
+  color: groupColorSchema,
 });
 export const workspaceDetailsSchema = z.object({
   groupId: z.string().min(1).nullable().default(null),
@@ -79,7 +82,9 @@ export const organizationSchema = z.object({
 export type Organization = z.infer<typeof organizationSchema>;
 
 // One installation owns the shared organization, including cross-host workspace keys.
-export const organization = defineSettings({ id: "organization", scope: "host", version: 1, schema: organizationSchema });
+// Version 2 added group colors; version 1 documents gain none.
+export const organization = defineSettings({ id: "organization", scope: "host", version: 2, schema: organizationSchema,
+  migrate: (values) => organizationSchema.parse(values) });
 export const preferencesSchema = z.object({ collapsed: z.array(z.string()).default([]), sort: z.enum(sortModes).catch("manual").default("manual"),
   titleLines: z.enum(titleLineOptions).catch("2").default("2"), groupBy: z.enum(groupByModes).catch("groups").default("groups"),
   // The toolbar chips' order (normalized with chipOrder) and whether they show text beside their icons.
@@ -89,10 +94,12 @@ export const preferencesSchema = z.object({ collapsed: z.array(z.string()).defau
   // In the desktop app, PR and issue links open as a Paseo browser tab in their workspace rather than the default browser.
   linksInPaseo: z.boolean().catch(true).default(true),
   // The host whose groups the sidebar uses when several run the plugin; null means this computer's (see sidebarHostFor).
-  sidebarHost: z.string().nullable().catch(null).default(null) });
+  sidebarHost: z.string().nullable().catch(null).default(null),
+  // How a colored group is drawn: its header and everything under it, or its header only.
+  groupColorFill: z.enum(groupColorFills).catch("group").default("group") });
 // Choices kept on each device: collapsed groups, sort, grouping, title lines, the toolbar, sticky headers and links.
-// Version 2 added the picked sidebar host; version 1 documents gain the default.
-export const preferences = defineSettings({ id: "preferences", scope: "device", version: 2, schema: preferencesSchema,
+// Version 2 added the picked sidebar host, version 3 the group color fill; older documents gain the defaults.
+export const preferences = defineSettings({ id: "preferences", scope: "device", version: 3, schema: preferencesSchema,
   migrate: (values) => preferencesSchema.parse(values) });
 
 export function workspaceKey(hostId: string, id: string): string { return JSON.stringify([hostId, id]); }

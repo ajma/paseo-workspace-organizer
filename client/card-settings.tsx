@@ -138,6 +138,16 @@ export function CardSettingsScreen({ theme, layout: surface }: Pick<PluginSurfac
           value={prefs ? prefs.stickyHeaders : true} disabled={!prefs}
           onValueChange={(stickyHeaders) => updatePrefs((current) => ({ ...current, stickyHeaders }))} />
       </SettingsCard>
+      <SettingsCard>
+        <View style={{ paddingHorizontal: 16 }}>
+          <Row theme={theme} compact={compact} title="Group colors"
+            hint="Pick a group's color with Edit group in its ⋯ menu. Color its header and every workspace in it, or just its header. Saved on this device only.">
+            <Segmented theme={theme} label="Group colors" disabled={!prefs} value={prefs ? prefs.groupColorFill : "group"}
+              options={[{ value: "group" as const, label: "Header and workspaces" }, { value: "header" as const, label: "Header" }]}
+              onChange={(groupColorFill) => updatePrefs((current) => ({ ...current, groupColorFill }))} />
+          </Row>
+        </View>
+      </SettingsCard>
     </SettingsSection>
     <SettingsSection title="Links">
       <SettingsCard>

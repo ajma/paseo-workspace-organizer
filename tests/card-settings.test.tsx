@@ -128,3 +128,11 @@ it("opens links in a Paseo browser tab in the desktop app unless turned off in s
   view.unmount();
   userAgent.mockRestore();
 });
+
+it("chooses whether a colored group tints just its header or its whole group, on this device", async () => {
+  const view = settings();
+  expect(screen.getByRole("radio", { name: "Group colors Header and workspaces" }).getAttribute("aria-checked")).toBe("true");
+  fireEvent.click(screen.getByRole("radio", { name: "Group colors Header" }));
+  await waitFor(() => expect(getDocument("preferences").groupColorFill).toBe("header"));
+  view.unmount();
+});

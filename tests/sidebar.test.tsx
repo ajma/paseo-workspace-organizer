@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { View } from "react-native";
 import { HINT_DELAY_MS } from "../client/hint";
 import { createProjectIconStore } from "../client/project-icons";
-import { archiveCalls, changeOrganization, failArchives, failRenames, getDocument, getOrganization, makeIndex, reloadCalls, renameCalls, resetHost, setHostLabels, setWorkspaces, theme, workspace } from "../preview/host";
+import { archiveCalls, changeOrganization, failArchives, failRenames, getDocument, getOrganization, makeIndex, reloadCalls, renameCalls, resetHost, setDocument, setHostLabels, setWorkspaces, theme, workspace } from "../preview/host";
 import { placeSidebar } from "../client/sidebar-placement";
 import { emptyDetails, workspaceKey } from "../shared/organization";
 
@@ -589,7 +589,7 @@ it("creates a group from the Group by menu", async () => {
 it("opens the group and workspace editors as a popover over the list, so they show wherever it is scrolled", () => {
   show();
   // Open from a group far down the list: the editor floats over the list rather than sitting at its top.
-  groupMenu("Later", "Rename or move…");
+  groupMenu("Later", "Edit group");
   const popover = screen.getByLabelText("Edit group", { selector: "div:not([role])" });
   expect(popover.style.position).toBe("absolute");
   expect(popover.contains(screen.getByRole("textbox", { name: "Group name" }))).toBe(true);
@@ -966,4 +966,27 @@ it("offers to show the open workspace when its group is collapsed, and expands e
   expect(screen.getByRole("button", { name: "Collapse In progress" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Collapse Interface" })).toBeTruthy();
   await waitFor(() => expect(screen.queryByRole("button", { name: "Show current workspace" })).toBeNull());
+});
+
+it("edits a group from Edit group, including its color, which tints its header or the whole group", async () => {
+  show();
+  expect(screen.queryAllByTestId("group-tint")).toEqual([]);
+  groupMenu("Later", "Edit group");
+  expect(screen.getByText("Edit group")).toBeTruthy();
+  fireEvent.click(screen.getByRole("radio", { name: "Yellow" }));
+  fireEvent.click(screen.getByRole("button", { name: "Save group" }));
+  await waitFor(() => expect(getOrganization().groups.find((group: { id: string }) => group.id === "later").color).toBe("yellow"));
+  // The whole group, by default: its header, and more lightly everything in it.
+  expect(within(headerOf("Later")).getByTestId("group-tint")).toBeTruthy();
+  expect(screen.getAllByTestId("group-body-tint")).toHaveLength(1);
+  expect(screen.getByTestId("group-body-tint").contains(rowOf("Polish compact sidebar layout"))).toBe(true);
+  // The setting to color just the header.
+  setDocument("preferences", { ...getDocument("preferences"), groupColorFill: "header" });
+  await waitFor(() => expect(screen.queryAllByTestId("group-body-tint")).toEqual([]));
+  expect(within(headerOf("Later")).getByTestId("group-tint")).toBeTruthy();
+  // No color takes the tint away.
+  groupMenu("Later", "Edit group");
+  fireEvent.click(screen.getByRole("radio", { name: "No color" }));
+  fireEvent.click(screen.getByRole("button", { name: "Save group" }));
+  await waitFor(() => expect(screen.queryAllByTestId("group-tint")).toEqual([]));
 });

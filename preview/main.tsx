@@ -45,6 +45,7 @@ const index = makeIndex(showcase?.index);
 const celebrations = createCelebrationStore();
 const presentation = createPresentationStore();
 presentation.update(theme);
+document.body.style.background = theme.colors.surface0;
 mountBrowserOverlay({ store: celebrations, presentation, onOpenWorkspace() {}, async onArchive() {}, onPresented() {} });
 const celebrate = () => celebrations.show({ ...previewCelebration, id: `preview-${Date.now()}` });
 if (showcase && new URLSearchParams(location.search).has("celebrate")) {

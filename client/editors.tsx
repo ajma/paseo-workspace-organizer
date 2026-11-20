@@ -6,6 +6,7 @@ import { descendants, dissolveGroup, emptyDetails, mergeLinks, type GithubLink, 
 import { parseLinkInput } from "../shared/link-resolve";
 import { Button, Choices, EditorFrame, ErrorText, Field, type Theme } from "./controls";
 import { font } from "./typography";
+import { groupColorHex, groupColorNames, type GroupColor } from "../shared/group-colors";
 import { linkLook, type GithubState } from "./card-fields";
 import { pascal } from "./lucide";
 import type { GithubStatus } from "../shared/github-status";
@@ -29,12 +30,13 @@ export function GroupEditor({ theme, value, revision, group, parentId, save, clo
   const [base] = useState({ value, revision });
   const [name, setName] = useState(group?.name ?? "");
   const [parent, setParent] = useState(group?.parentId ?? parentId);
+  const [color, setColor] = useState<GroupColor | null>(group?.color ?? null);
   const excluded = group ? descendants(base.value.groups, group.id) : new Set<string>();
   const [error, setError] = useState<string | null>(null);
   async function submit() {
     if (!name.trim()) { setError("Give the group a name."); return; }
     const id = group?.id ?? `group-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-    const next = { id, name: name.trim(), parentId: parent };
+    const next = { id, name: name.trim(), parentId: parent, color };
     const groups = group ? base.value.groups.map((item) => item.id === id ? next : item) : [...base.value.groups, next];
     if (await save({ ...base.value, groups }, base.revision)) close();
   }
@@ -42,6 +44,7 @@ export function GroupEditor({ theme, value, revision, group, parentId, save, clo
     <Field theme={theme} label="Group name" value={name} onChangeText={setName} />
     <Choices theme={theme} label="Parent group" value={parent} onSelect={setParent}
       options={[{ id: null, name: "Top level" }, ...base.value.groups.filter((item) => !excluded.has(item.id)).map((item) => ({ id: item.id, name: groupPath(base.value.groups, item.id) }))]} />
+    <ColorChoices theme={theme} value={color} onSelect={setColor} />
     {group ? <Text style={{ color: theme.colors.foregroundMuted, fontSize: font.sm }}>Removing this group moves its contents to its parent.</Text> : null}
     <ErrorText theme={theme} message={error ?? saveError} />
     <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
@@ -53,6 +56,27 @@ export function GroupEditor({ theme, value, revision, group, parentId, save, clo
     </View>
     {saveError ? <Button theme={theme} label="Close and reload latest changes" disabled={saving} onPress={close} /> : null}
   </EditorFrame>;
+}
+
+// Swatches in each color at full strength; the group shows it as a lighter tint.
+function ColorChoices({ theme, value, onSelect }: { theme: Theme; value: GroupColor | null; onSelect: (color: GroupColor | null) => void }) {
+  const swatch = (color: GroupColor | null) => {
+    const selected = value === color;
+    const name = color ? color[0].toUpperCase() + color.slice(1) : "No color";
+    return <Pressable key={color ?? "none"} accessibilityRole="radio" accessibilityState={{ checked: selected }} accessibilityLabel={name}
+      onPress={() => onSelect(color)} style={{ padding: 2, borderRadius: 13, borderWidth: 2, borderColor: selected ? theme.colors.accent : "transparent" }}>
+      <View style={{ width: 18, height: 18, borderRadius: 9, alignItems: "center", justifyContent: "center",
+        ...(color ? { backgroundColor: groupColorHex(color) } : { borderWidth: 1, borderColor: theme.colors.border }) }}>
+        {color ? null : <Icon name="X" size={11} color={theme.colors.foregroundMuted} />}
+      </View>
+    </Pressable>;
+  };
+  return <View style={{ gap: 6 }}>
+    <Text style={{ color: theme.colors.foregroundMuted, fontSize: font.sm }}>Color</Text>
+    <View accessibilityRole="radiogroup" style={{ flexDirection: "row", flexWrap: "wrap", gap: 2 }}>
+      {[null, ...groupColorNames].map(swatch)}
+    </View>
+  </View>;
 }
 
 // Looks bare PR or issue numbers up in the workspace's repository.

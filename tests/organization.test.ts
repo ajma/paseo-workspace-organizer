@@ -4,7 +4,7 @@ import { descendants, dissolveGroup, emptyDetails, matchesSearch, mergeLinks, mo
 
 describe("workspace organization", () => {
   it("accepts nested groups and rejects cycles, dangling parents and duplicate IDs", () => {
-    const groups = [{ id: "a", name: "A", parentId: null }, { id: "b", name: "B", parentId: "a" }];
+    const groups = [{ id: "a", name: "A", parentId: null, color: null }, { id: "b", name: "B", parentId: "a", color: null }];
     expect(organizationSchema.parse({ groups }).groups).toEqual(groups);
     expect(organizationSchema.safeParse({ groups: [{ ...groups[0], parentId: "b" }, groups[1]] }).success).toBe(false);
     expect(organizationSchema.safeParse({ groups: [{ ...groups[0], parentId: "missing" }] }).success).toBe(false);
@@ -15,7 +15,7 @@ describe("workspace organization", () => {
     const value = organizationSchema.parse({ groups: [{ id: "a", name: "A", parentId: null }, { id: "b", name: "B", parentId: "a" }],
       workspaces: { w: { ...emptyDetails(), groupId: "a", subtitle: "line 1\nline 2" } } });
     const next = dissolveGroup(value, "a");
-    expect(next.groups).toEqual([{ id: "b", name: "B", parentId: null }]);
+    expect(next.groups).toEqual([{ id: "b", name: "B", parentId: null, color: null }]);
     expect(next.workspaces.w).toMatchObject({ groupId: null, subtitle: "line 1\nline 2" });
     expect(organizationSchema.safeParse(next).success).toBe(true);
   });

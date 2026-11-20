@@ -35,6 +35,7 @@ import { useLabelColors, type LabelColorStore } from "./label-colors";
 import { useRemoteWorkspaces, type RemoteWorkspaces } from "./remote-workspaces";
 import { archiveWorkspace, useArchiveShortcut, useRowArchiver } from "./archive-shortcut";
 import { Leaving } from "./motion";
+import { blend, groupTint, type GroupColorFill } from "../shared/group-colors";
 import { JumpToActiveButton, useJumpToActive } from "./jump-to-active";
 import { collapsedAround, groupChain } from "../shared/jump-to-active";
 import { Collapsible, TurningChevron } from "./collapsible";
@@ -213,18 +214,19 @@ export function OrganizerSidebar(props: PluginSidebarViewProps & { index: Worksp
       setOrder: (toolbarOrder) => updatePrefs((values) => ({ ...values, toolbarOrder })),
       setLabels: (toolbarLabels) => updatePrefs((values) => ({ ...values, toolbarLabels })) } : undefined}
     stickyHeaders={prefs ? prefs.stickyHeaders : true}
+    groupColorFill={prefs ? prefs.groupColorFill : "group"}
     groupBy={prefs ? prefs.groupBy : "groups"}
     setGroupBy={(groupBy) => updatePrefs((values) => ({ ...values, groupBy }))}
     displayError={device.status === "invalid" || device.status === "error" ? device.error : device.saveError} />;
 }
 
-function WorkspaceTree({ theme, navigation, active, layout, settings, runtime, collapsed, toggleCollapsed, setCollapsed, canCollapse, sort, setSort, canSort, groupBy, setGroupBy, toolbar, hostChoice, stickyHeaders, displayError, index, icons, labelColors, card, openCardSettings, cardMode, remoteWorkspaces, openInBrowser, resolveLinks }: PluginSidebarViewProps & {
+function WorkspaceTree({ theme, navigation, active, layout, settings, runtime, collapsed, toggleCollapsed, setCollapsed, canCollapse, sort, setSort, canSort, groupBy, setGroupBy, toolbar, hostChoice, stickyHeaders, groupColorFill, displayError, index, icons, labelColors, card, openCardSettings, cardMode, remoteWorkspaces, openInBrowser, resolveLinks }: PluginSidebarViewProps & {
   settings: ReadySettings; runtime: IndexEvent | null; collapsed: string[]; toggleCollapsed: (id: string) => void;
   setCollapsed: (ids: string[], collapse: boolean) => void;
   sort: SortMode; setSort: (sort: SortMode) => void; canSort: boolean; groupBy: GroupBy; setGroupBy: (groupBy: GroupBy) => void;
   toolbar?: { order: readonly string[]; labels: boolean; setOrder: (order: ToolbarChip[]) => void; setLabels: (labels: boolean) => void };
   hostChoice?: { hosts: { id: string; label: string }[]; current: string | null; choose: (id: string) => void };
-  stickyHeaders: boolean;
+  stickyHeaders: boolean; groupColorFill: GroupColorFill;
   canCollapse: boolean; displayError: string | null; index: WorkspaceIndex; icons?: ProjectIconStore; labelColors?: LabelColorStore; card: CardConfig; openCardSettings?: () => void;
   cardMode: { ready: boolean; value: CardMode; set: (mode: CardMode) => void }; remoteWorkspaces?: RemoteWorkspaces; resolveLinks?: ResolveLinks;
   openInBrowser?: (url: string, workspace: WorkspaceRef) => void;
@@ -403,25 +405,39 @@ function WorkspaceTree({ theme, navigation, active, layout, settings, runtime, c
       drag={rowDrag(ref.key, bucket, siblings, groupId)} rowRef={ref.key === active.workspace?.key ? jumpToActive.rowRef : undefined} />);
   }
   const groupMenu = (group: Group) => busy ? [] : [
-    { label: "Rename or move…", run: () => setEditor({ kind: "group", group, parentId: group.parentId }) },
+    { label: "Edit group", run: () => setEditor({ kind: "group", group, parentId: group.parentId }) },
     { label: "Add subgroup…", run: () => setEditor({ kind: "group", parentId: group.id }) },
     { label: "Remove group", run: () => commit(dissolveGroup(value, group.id)) },
   ];
-  function renderGroups(parentId: string | null, depth = 0) {
+  // `tints`: the tints of colored groups around this one that cover their whole group, outermost first.
+  function renderGroups(parentId: string | null, depth = 0, tints: readonly string[] = []) {
     const siblings = value.groups.filter((group) => group.parentId === parentId);
     return siblings.filter((group) => !searching || hasMatches(group.id)).map((group, position) => {
       const isCollapsed = !searching && collapsed.includes(group.id);
+      const { header, body } = tintsFor(group);
+      const sticky = stickyAt(depth);
+      const inner = () => <>{renderGroups(group.id, depth + 1, body ? [...tints, body] : tints)}{renderRows(members(group.id), group.id, group.id)}</>;
       // Earlier groups sit above later ones so a row's menu is never covered by the next group.
       return <View key={group.id} style={{ zIndex: siblings.length - position + 1, marginLeft: depth === 0 ? 0 : 10, marginBottom: 6,
         borderLeftWidth: depth ? 1 : 0, borderLeftColor: theme.colors.border, ...dropHighlight(group.id) }}>
-        <GroupHeader theme={theme} title={group.name} count={countMembers(group.id)} open={!isCollapsed} animate={!searching} sticky={stickyAt(depth)}
+        <GroupHeader theme={theme} title={group.name} count={countMembers(group.id)} open={!isCollapsed} animate={!searching}
+          // Pinned, it hides the rows beneath it, so it carries the tints it sits on as one solid color.
+          sticky={sticky && { ...sticky, background: blend(sticky.background, tints) }} tint={header}
           canCollapse={canCollapse && !searching} onToggle={() => toggleCollapsed(group.id)} drag={headerDrag(group)}
           menu={groupMenu(group)} />
         {/* Searching opens matching groups instantly; collapsing and expanding by hand slides. */}
-        <Collapsible open={!isCollapsed} animate={!searching}>{() => <>{renderGroups(group.id, depth + 1)}{renderRows(members(group.id), group.id, group.id)}</>}</Collapsible>
+        <Collapsible open={!isCollapsed} animate={!searching}>{() => body
+          // Layers pass through, so a row's menu can still rise above the groups after it.
+          ? <View testID="group-body-tint" style={{ backgroundColor: body, zIndex: "auto" } as object}>{inner()}</View> : inner()}</Collapsible>
       </View>;
     });
   }
+  // A colored group's header tint, and its whole-group tint when the device's setting colors the whole group.
+  const dark = isDarkSurface(theme.colors.surface0);
+  const tintsFor = (group: Group) => ({
+    header: group.color ? groupTint(group.color, dark, "header") : undefined,
+    body: group.color && groupColorFill === "group" ? groupTint(group.color, dark, "body") : undefined,
+  });
   function renderBuckets() {
     if (groupBy === "none") return buckets.map((bucket) => <View key="all">{renderRows(bucket.items, bucket.key, undefined)}</View>);
     return buckets.map((bucket, position) => {
@@ -445,17 +461,22 @@ function WorkspaceTree({ theme, navigation, active, layout, settings, runtime, c
   const nativeSticky = stickyHeaders && Platform.OS !== "web";
   const indent = (depth: number) => ({ marginLeft: depth * 10, borderLeftWidth: depth ? 1 : 0, borderLeftColor: theme.colors.border });
   const headerBackground = { top: 0, background: theme.colors.surface0 };
-  function flatGroups(parentId: string | null, depth = 0): ListItem[] {
+  // Subgroups are separate items here, so each item carries the whole-group tints of the colored groups around it.
+  function flatGroups(parentId: string | null, depth = 0, tints: readonly string[] = []): ListItem[] {
     const siblings = value.groups.filter((group) => group.parentId === parentId && (!searching || hasMatches(group.id)));
     return siblings.flatMap((group) => {
       const isCollapsed = !searching && collapsed.includes(group.id);
+      const { header, body } = tintsFor(group);
+      const inside = body ? [...tints, body] : tints;
       return [
         { key: `header:${group.id}`, sticky: true, element: <View style={indent(depth)}>
-          <GroupHeader theme={theme} title={group.name} count={countMembers(group.id)} open={!isCollapsed} animate={!searching} sticky={headerBackground}
+          <GroupHeader theme={theme} title={group.name} count={countMembers(group.id)} open={!isCollapsed} animate={!searching}
+            sticky={{ ...headerBackground, background: blend(headerBackground.background, tints) }} tint={header}
             canCollapse={canCollapse && !searching} onToggle={() => toggleCollapsed(group.id)} menu={groupMenu(group)} />
         </View> },
-        ...(isCollapsed ? [] : flatGroups(group.id, depth + 1)),
-        { key: `rows:${group.id}`, sticky: false, element: <View style={{ ...indent(depth), marginBottom: 6 }}>
+        ...(isCollapsed ? [] : flatGroups(group.id, depth + 1, inside)),
+        { key: `rows:${group.id}`, sticky: false, element: <View testID={body ? "group-body-tint" : undefined}
+          style={{ ...indent(depth), marginBottom: 6, ...(inside.length ? { backgroundColor: blend(theme.colors.surface0, inside) } : {}) }}>
           <Collapsible open={!isCollapsed} animate={!searching}>{() => renderRows(members(group.id), group.id, group.id)}</Collapsible>
         </View> },
       ];
@@ -628,11 +649,13 @@ type DragSpec = { payload: DragPayload | null; decide?: (payload: DragPayload, r
   onDrop?: (payload: DragPayload, position: DropPosition) => void; group?: string };
 
 // A group's header: its chevron, name and count; a ⋯ menu for your own groups; and drag and drop.
-function GroupHeader({ theme, title, count, open, animate, canCollapse, onToggle, leading, drag, menu = [], sticky }: {
+function GroupHeader({ theme, title, count, open, animate, canCollapse, onToggle, leading, drag, menu = [], sticky, tint }: {
   theme: Theme; title: string; count: number; open: boolean; animate: boolean; canCollapse: boolean; onToggle?: () => void;
   leading?: ReactNode; drag?: DragSpec; menu?: { label: string; run: () => void }[];
   // Pinned this far from the top of the list while its group scrolls beneath it, over the list's own background.
   sticky?: { top: number; background: string };
+  // A colored group's tint, laid over whatever background the header has.
+  tint?: string;
 }) {
   const dnd = useDragDrop({ payload: drag?.payload ?? null, decide: drag?.decide, onDrop: drag?.onDrop, group: drag?.group, label: title });
   const [hovered, setHovered] = useState(false);
@@ -654,6 +677,8 @@ function GroupHeader({ theme, title, count, open, animate, canCollapse, onToggle
     paddingHorizontal: 8, paddingVertical: 6, borderRadius: sticky ? 0 : 6, borderWidth: 1,
     borderColor: dnd.position === "inside" ? theme.colors.accent : "transparent",
     backgroundColor: dnd.position === "inside" ? theme.colors.surface2 : sticky?.background ?? "transparent" } as object}>
+    {tint ? <View testID="group-tint" pointerEvents="none" style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0,
+      borderRadius: sticky ? 0 : 6, backgroundColor: tint }} /> : null}
     <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
       <Pressable accessibilityRole="button" accessibilityLabel={`${open ? "Collapse" : "Expand"} ${title}`}
           accessibilityState={{ expanded: open }} disabled={!canCollapse} onPress={onToggle}

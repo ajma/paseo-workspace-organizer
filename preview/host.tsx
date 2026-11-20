@@ -2,9 +2,14 @@
 import { useSyncExternalStore } from "react";
 import { organizationSchema, emptyDetails, parseGithubLink, workspaceKey } from "../shared/organization";
 
-export const theme = { colors: { surface0: "#1c1e23", surface1: "#23262d", surface2: "#2d323b", border: "#353b45",
+const darkTheme = { colors: { surface0: "#1c1e23", surface1: "#23262d", surface2: "#2d323b", border: "#353b45",
   foreground: "#e7e9ef", foregroundMuted: "#a5acb9", accent: "#9bb9ff", accentForeground: "#17233e",
   statusSuccess: "#75cba5", statusWarning: "#e7bd78", statusDanger: "#f09090" } };
+const lightTheme = { colors: { surface0: "#ffffff", surface1: "#f4f5f7", surface2: "#e9ebef", border: "#dcdfe5",
+  foreground: "#1c1e23", foregroundMuted: "#5d6573", accent: "#3b6fe0", accentForeground: "#ffffff",
+  statusSuccess: "#2f9e6e", statusWarning: "#b7791f", statusDanger: "#d14343" } };
+// ?light in the preview draws a light theme; tests always get the dark one.
+export const theme = typeof location !== "undefined" && new URLSearchParams(location.search).has("light") ? lightTheme : darkTheme;
 const ref = (id: string, hostId = "local") => ({ kind: "workspace" as const, hostId, id, key: workspaceKey(hostId, id) });
 export const workspace = (id: string, title: string, extra: Record<string, any> = {}) => ({
   hostId: "local", id, title, name: title, directory: `/work/${id}`, projectId: "paseo", projectDisplayName: "paseo",
@@ -64,6 +69,7 @@ export function resetHost() { workspaces = sampleWorkspaces(); agents = []; arch
 resetHost();
 export function getOrganization() { return documents.organization.values; }
 export function getDocument(id: string) { return documents[id]?.values; }
+export function setDocument(id: string, values: any) { documents[id] = { revision: String(Number(documents[id]?.revision ?? "0") + 1), values }; emit(); }
 export function changeOrganization(update: (values: any) => any) { documents.organization = { revision: String(Number(documents.organization.revision) + 1), values: update(documents.organization.values) }; emit(); }
 export function setWorkspaces(next: typeof workspaces) { workspaces = next; emit(); }
 export function useSettings(definition: any) {
