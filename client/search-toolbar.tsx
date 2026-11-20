@@ -16,6 +16,7 @@ import { cardModeLabels, cardModes, type CardMode } from "../shared/cards";
 import { chipOrder, firstLineCount, moveChip, type ToolbarChip } from "../shared/toolbar";
 import { useDragDrop } from "./drag";
 import { HintBubble, useHint } from "./hint";
+import { Collapsible } from "./collapsible";
 
 const CHIP_GAP = 4;
 
@@ -171,7 +172,7 @@ export function SearchToolbar({ theme, criteria, onChange, tags, hosts, projects
     {toolbar || openCardSettings || hostChoice ? <IconButton theme={theme} label="More options" icon="Ellipsis"
       onPress={() => toggleMenu("more")} pressed={menu === "more"} /> : null}
   </View> : null;
-  return <View style={{ gap: 7 }}>
+  return <View>
     <View onLayout={(event) => setRowWidth(Math.round(event.nativeEvent.layout.width))} style={{ gap: CHIP_GAP, position: "relative", zIndex: 20 }}>
       {/* Line one sits above line two so hints from its controls show over the line below. */}
       <ToolbarLine layer={3} trailing={<>{navButtons}{oneLine ? toolButtons : null}</>}>{items.slice(0, fit).map(renderItem)}</ToolbarLine>
@@ -236,11 +237,14 @@ export function SearchToolbar({ theme, criteria, onChange, tags, hosts, projects
           selected={sort === mode} disabled={sortDisabled} onPress={() => { onSortChange(mode); setMenu(null); }} />)}
       </View>}</Dropdown>
     </View>
-    {searchOpen ? <TextInput accessibilityLabel="Search workspaces" placeholder="Search name, tag, PR or issue #"
-      placeholderTextColor={theme.colors.foregroundMuted} autoFocus value={criteria.query}
-      onChangeText={(query) => onChange({ ...criteria, query })} autoCorrect={false} autoCapitalize="none"
-      style={{ borderRadius: 5, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.surface1,
-        padding: 8, fontSize: font.sm, color: theme.colors.foreground }} /> : null}
+    {/* The search box slides open and shut like a group; its gap above slides with it, so nothing jumps. */}
+    <Collapsible open={searchOpen}>{() => <View style={{ paddingTop: 7 }}>
+      <TextInput accessibilityLabel="Search workspaces" placeholder="Search name, tag, PR or issue #"
+        placeholderTextColor={theme.colors.foregroundMuted} autoFocus value={criteria.query}
+        onChangeText={(query) => onChange({ ...criteria, query })} autoCorrect={false} autoCapitalize="none"
+        style={{ borderRadius: 5, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.surface1,
+          padding: 8, fontSize: font.sm, color: theme.colors.foreground }} />
+    </View>}</Collapsible>
   </View>;
 }
 
