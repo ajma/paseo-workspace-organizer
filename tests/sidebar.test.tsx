@@ -475,6 +475,22 @@ it("drops a group inside another, or above it, but never inside itself", async (
   expect(JSON.stringify(getOrganization().groups)).toBe(before);
 });
 
+it("shows every workspace in one list with no group headers when grouping is None", async () => {
+  show();
+  fireEvent.click(screen.getByRole("button", { name: "Group by, currently Your groups" }));
+  fireEvent.click(screen.getByRole("button", { name: "Group by None" }));
+  await waitFor(() => expect(getDocument("preferences").groupBy).toBe("none"));
+  expect(screen.getByRole("button", { name: "Group by, currently None" })).toBeTruthy();
+  // No headers of any kind, and nothing to collapse.
+  expect(screen.queryAllByRole("button", { name: /^(Collapse|Expand) / })).toEqual([]);
+  expect(screen.queryByText("In progress")).toBeNull();
+  expect(screen.queryByText("Ungrouped")).toBeNull();
+  // Every workspace is listed.
+  for (const title of ["Restructure workspace navigation", "Search by GitHub references", "Polish compact sidebar layout", "Explore next ideas"]) {
+    expect(screen.getByRole("button", { name: new RegExp(`^Open ${title}`) })).toBeTruthy();
+  }
+});
+
 it("groups by host, project or PR status from Group by, remembered on the device", async () => {
   const view = show();
   fireEvent.click(screen.getByRole("button", { name: "Group by, currently Your groups" }));

@@ -1,8 +1,9 @@
-// How the sidebar groups workspaces: your own groups, or groups made automatically from each workspace.
-export const groupByModes = ["groups", "host", "project", "pr"] as const;
+// How the sidebar groups workspaces: your own groups, groups made automatically from each workspace, or none (one
+// list with no headers).
+export const groupByModes = ["groups", "host", "project", "pr", "none"] as const;
 export type GroupBy = typeof groupByModes[number];
 export const groupByLabels: Record<GroupBy, string> = {
-  groups: "Your groups", host: "Host", project: "Project", pr: "PR status",
+  groups: "Your groups", host: "Host", project: "Project", pr: "PR status", none: "None",
 };
 
 export type Bucket = { key: string; title: string };

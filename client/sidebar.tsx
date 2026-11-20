@@ -296,6 +296,8 @@ function WorkspaceTree({ theme, navigation, active, layout, settings, runtime, c
     if (groupBy === "host") return { key: workspace.hostId, title: hosts.find((host) => host.serverId === workspace.hostId)?.label ?? workspace.hostId };
     if (groupBy === "project") return { key: workspace.project.key, title: projectLabel(workspace.project.key) ?? workspace.projectDisplayName };
     if (groupBy === "pr") return prBucket(prStatesFor(workspace));
+    // No grouping: one bucket, drawn without a header.
+    if (groupBy === "none") return { key: "all", title: "" };
     return "all";
   } });
   const fixedOrder = groupBy === "pr" ? prBuckets : null;
@@ -402,6 +404,7 @@ function WorkspaceTree({ theme, navigation, active, layout, settings, runtime, c
     });
   }
   function renderBuckets() {
+    if (groupBy === "none") return buckets.map((bucket) => <View key="all">{renderRows(bucket.items, bucket.key, undefined)}</View>);
     return buckets.map((bucket, position) => {
       const id = `${groupBy}:${bucket.key}`;
       const isCollapsed = !searching && collapsed.includes(id);
@@ -440,6 +443,7 @@ function WorkspaceTree({ theme, navigation, active, layout, settings, runtime, c
     });
   }
   function flatList(): ListItem[] {
+    if (groupBy === "none") return buckets.map((bucket) => ({ key: "rows:all", sticky: false, element: renderRows(bucket.items, bucket.key, undefined) }));
     if (!ownGroups) return buckets.flatMap((bucket) => {
       const id = `${groupBy}:${bucket.key}`;
       const isCollapsed = !searching && collapsed.includes(id);
@@ -497,7 +501,7 @@ function WorkspaceTree({ theme, navigation, active, layout, settings, runtime, c
   const showsUngrouped = ownGroups && value.groups.length > 0 && ungrouped.length > 0;
   const ungroupedOpen = searching || !collapsed.includes(UNGROUPED);
   const groupIds = ownGroups ? [...value.groups.map((group) => group.id), ...(showsUngrouped ? [UNGROUPED] : [])]
-    : buckets.map((bucket) => `${groupBy}:${bucket.key}`);
+    : groupBy === "none" ? [] : buckets.map((bucket) => `${groupBy}:${bucket.key}`);
   const anyOpen = groupIds.some((id) => !collapsed.includes(id));
   // No background of its own: the sidebar shows Paseo's sidebar color behind it.
   // The group and workspace editors float over the list below the toolbar, so they show wherever the list is scrolled.

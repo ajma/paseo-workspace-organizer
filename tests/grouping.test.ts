@@ -2,8 +2,9 @@ import { expect, it } from "vitest";
 import { groupByModes, prBucket } from "../shared/grouping";
 import { preferencesSchema, emptyDetails, organizationSchema, placeGroup, placeWorkspace } from "../shared/organization";
 
-it("offers your groups, host, project and PR status", () => {
-  expect([...groupByModes]).toEqual(["groups", "host", "project", "pr"]);
+it("offers your groups, host, project, PR status and none", () => {
+  expect([...groupByModes]).toEqual(["groups", "host", "project", "pr", "none"]);
+  expect(preferencesSchema.parse({ groupBy: "none" }).groupBy).toBe("none");
   // A device that chose the removed Last active grouping falls back to your groups.
   expect(preferencesSchema.parse({ groupBy: "activity" }).groupBy).toBe("groups");
   expect(preferencesSchema.parse({}).groupBy).toBe("groups");

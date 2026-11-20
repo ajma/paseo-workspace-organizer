@@ -31,7 +31,7 @@ When you run a dozen agents at once, a flat list of workspaces stops working. **
 ### 🗂️ Organize it your way
 - **Nested groups, as deep as you like.** Drag workspaces into groups, drag groups into groups, and drag to reorder.
 - **Pick the group up front.** Paseo's **New workspace** screen gets a **Group** field beside Host and Isolation, so a new workspace lands where it belongs.
-- **Instant automatic grouping.** One click regroups everything by **Host**, **Project** or **PR status**, then back to your own groups.
+- **Instant automatic grouping.** One click regroups everything by **Host**, **Project** or **PR status**, or shows one flat list with **None**, then back to your own groups.
 - **Collapse everything in one press**, with smooth sliding groups and **sticky headers** that stay pinned while you scroll.
 
 ### 👀 See everything at a glance
@@ -82,7 +82,7 @@ When you run a dozen agents at once, a flat list of workspaces stops working. **
 
 | Area | Feature |
 |---|---|
-| **Groups** | Nested custom groups · drag-and-drop workspaces and groups · Group field on the New workspace screen · Group by Host / Project / PR status · Ungrouped section · collapse/expand all · animated collapse · sticky group headers (setting) |
+| **Groups** | Nested custom groups · drag-and-drop workspaces and groups · Group field on the New workspace screen · Group by Host / Project / PR status / None · Ungrouped section · collapse/expand all · animated collapse · sticky group headers (setting) |
 | **Rows** | Project icon or agent mark with status dot · title (1–4 lines) · last activity · agent, model, thinking level · project › workspace · branch with dirty, ahead and behind · folder or full path · labels and tags with `+N` · PRs and issues with state, CI and review · subagent summary · run timer · notes · host badge |
 | **Views** | Simple / Full / Custom views · per-field toggles · labels shown · title lines · simple rows on phones · live sample in settings |
 | **Details** | Hover panel with every field in full · clickable PR and issue links · long-press on phones |
