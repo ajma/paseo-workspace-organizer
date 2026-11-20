@@ -93,6 +93,10 @@ it("keeps group headers at the top while scrolling unless turned off in settings
   expect(header().style.position).toBe("sticky");
   // Subgroups pin just below their parent's header.
   expect((screen.getByRole("button", { name: "Collapse Interface" }).parentElement!.parentElement as HTMLElement).style.top).toBe("42px");
+  // A subgroup header is shorter than a top-level one.
+  const subgroup = screen.getByRole("button", { name: "Collapse Interface" }).parentElement!.parentElement as HTMLElement;
+  expect(subgroup.style.paddingTop).toBe("4px");
+  expect((screen.getByRole("button", { name: "Collapse Interface" }) as HTMLElement).style.minHeight).toBe("24px");
   view.unmount();
   const settings = render(<CardSettingsScreen theme={theme} layout={{ compact: false, platform: "web" }} />);
   fireEvent.click(screen.getByRole("switch", { name: "Sticky group headers" }));

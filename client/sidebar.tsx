@@ -35,6 +35,7 @@ import { useLabelColors, type LabelColorStore } from "./label-colors";
 import { useRemoteWorkspaces, type RemoteWorkspaces } from "./remote-workspaces";
 import { archiveWorkspace, useArchiveShortcut, useRowArchiver } from "./archive-shortcut";
 import { Leaving } from "./motion";
+import { GROUP_HEADER, stickyTop, SUBGROUP_HEADER } from "../shared/group-header";
 import { blend, groupTint, type GroupColorFill } from "../shared/group-colors";
 import { JumpToActiveButton, useJumpToActive } from "./jump-to-active";
 import { collapsedAround, groupChain } from "../shared/jump-to-active";
@@ -425,7 +426,7 @@ function WorkspaceTree({ theme, navigation, active, layout, settings, runtime, c
       // Earlier groups sit above later ones so a row's menu is never covered by the next group.
       return <View key={group.id} style={{ zIndex: siblings.length - position + 1, marginLeft: depth === 0 ? 0 : 10, marginBottom: 6,
         borderLeftWidth: depth ? 1 : 0, borderLeftColor: theme.colors.border, ...dropHighlight(group.id) }}>
-        <GroupHeader theme={theme} title={group.name} count={countMembers(group.id)} open={!isCollapsed} animate={!searching}
+        <GroupHeader theme={theme} title={group.name} count={countMembers(group.id)} open={!isCollapsed} animate={!searching} subgroup={depth > 0}
           // Pinned, it hides the rows beneath it, so it carries the tints it sits on as one solid color.
           sticky={sticky && { ...sticky, background: blend(sticky.background, tints) }} tint={header}
           canCollapse={canCollapse && !searching} onToggle={() => toggleCollapsed(group.id)} drag={headerDrag(group)}
@@ -475,7 +476,7 @@ function WorkspaceTree({ theme, navigation, active, layout, settings, runtime, c
       const inside = body ? [...tints, body] : tints;
       return [
         { key: `header:${group.id}`, sticky: true, element: <View style={indent(depth)}>
-          <GroupHeader theme={theme} title={group.name} count={countMembers(group.id)} open={!isCollapsed} animate={!searching}
+          <GroupHeader theme={theme} title={group.name} count={countMembers(group.id)} open={!isCollapsed} animate={!searching} subgroup={depth > 0}
             sticky={{ ...headerBackground, background: blend(headerBackground.background, tints) }} tint={header}
             canCollapse={canCollapse && !searching} onToggle={() => toggleCollapsed(group.id)} menu={groupMenu(group)} />
         </View> },
@@ -511,7 +512,7 @@ function WorkspaceTree({ theme, navigation, active, layout, settings, runtime, c
   // headers pin just below their parents'. They cover the rows with the sidebar's own color, read from the page.
   const [listBackground, setListBackground] = useState<string | null>(null);
   const stickyAt = (depth: number) => stickyHeaders && Platform.OS === "web"
-    ? { top: depth * GROUP_HEADER_HEIGHT, background: listBackground ?? theme.colors.surface0 } : undefined;
+    ? { top: stickyTop(depth), background: listBackground ?? theme.colors.surface0 } : undefined;
   // Back and forward through the workspaces opened this session, skipping any since archived.
   const visibleRefs = useWorkspaces({ where: visibleWorkspace });
   const openable = new Set(visibleRefs.map((ref) => ref.key));
@@ -644,8 +645,6 @@ function WorkspaceTree({ theme, navigation, active, layout, settings, runtime, c
   </View>;
 }
 
-// A group header's height: its 28px row, 6px padding above and below, and a 1px border.
-const GROUP_HEADER_HEIGHT = 42;
 
 // The Ungrouped section's id in the device's collapsed list; group ids never start with "__".
 const UNGROUPED = "__ungrouped";
@@ -654,14 +653,17 @@ type DragSpec = { payload: DragPayload | null; decide?: (payload: DragPayload, r
   onDrop?: (payload: DragPayload, position: DropPosition) => void; group?: string };
 
 // A group's header: its chevron, name and count; a ⋯ menu for your own groups; and drag and drop.
-function GroupHeader({ theme, title, count, open, animate, canCollapse, onToggle, leading, drag, menu = [], sticky, tint }: {
+function GroupHeader({ theme, title, count, open, animate, canCollapse, onToggle, leading, drag, menu = [], sticky, tint, subgroup = false }: {
   theme: Theme; title: string; count: number; open: boolean; animate: boolean; canCollapse: boolean; onToggle?: () => void;
   leading?: ReactNode; drag?: DragSpec; menu?: { label: string; run: () => void }[];
   // Pinned this far from the top of the list while its group scrolls beneath it, over the list's own background.
   sticky?: { top: number; background: string };
   // A colored group's tint, laid over whatever background the header has.
   tint?: string;
+  // A subgroup's header is a fifth shorter than a top-level one's.
+  subgroup?: boolean;
 }) {
+  const size = subgroup ? SUBGROUP_HEADER : GROUP_HEADER;
   const dnd = useDragDrop({ payload: drag?.payload ?? null, decide: drag?.decide, onDrop: drag?.onDrop, group: drag?.group, label: title });
   const [hovered, setHovered] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -679,7 +681,7 @@ function GroupHeader({ theme, title, count, open, animate, canCollapse, onToggle
   const cssSticky = sticky && Platform.OS === "web";
   return <View ref={dnd.ref} style={{ position: cssSticky ? "sticky" : "relative", top: cssSticky ? sticky.top : undefined, zIndex: cssSticky ? 4 : 2,
     // A pinned header is square, so rows scrolling beneath it never show through rounded corners.
-    paddingHorizontal: 8, paddingVertical: 6, borderRadius: sticky ? 0 : 6, borderWidth: 1,
+    paddingHorizontal: 8, paddingVertical: size.padding, borderRadius: sticky ? 0 : 6, borderWidth: 1,
     borderColor: dnd.position === "inside" ? theme.colors.accent : "transparent",
     backgroundColor: dnd.position === "inside" ? theme.colors.surface2 : sticky?.background ?? "transparent" } as object}>
     {tint ? <View testID="group-tint" pointerEvents="none" style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0,
@@ -688,7 +690,7 @@ function GroupHeader({ theme, title, count, open, animate, canCollapse, onToggle
       <Pressable accessibilityRole="button" accessibilityLabel={`${open ? "Collapse" : "Expand"} ${title}`}
           accessibilityState={{ expanded: open }} disabled={!canCollapse} onPress={onToggle}
           onHoverIn={() => presence(true)} onHoverOut={() => presence(false)}
-          style={{ flex: 1, minHeight: 28, flexDirection: "row", alignItems: "center", gap: 5 }}>
+          style={{ flex: 1, minHeight: size.line, flexDirection: "row", alignItems: "center", gap: 5 }}>
           <TurningChevron open={open} animate={animate} size={font.md} color={muted} />
           {leading}
           <Text numberOfLines={1} style={{ color: muted, fontWeight: "600", fontSize: font.sm, flex: 1 }}>{title}</Text>
