@@ -33,17 +33,29 @@ it("looks numbers up in the workspace's own repository, as a PR or an issue", as
     return `https://github.com/${repository}/${number === 42 ? "pull" : "issues"}/${number}`;
   });
   const resolve = serverWith([{ id: "w", gitRuntime: { remoteUrl: "git@github.com:Acme/App.git" } }], lookup);
-  expect(await resolve({ hostId: "h1", workspaceId: "w", repository: null, numbers: [42, 43, 404] })).toEqual({
+  expect(await resolve({ hostId: "h1", workspaceId: "w", numbers: [42, 43, 404] })).toEqual({
     links: [{ repository: "acme/app", number: 42, kind: "pr", url: "https://github.com/acme/app/pull/42" },
       { repository: "acme/app", number: 43, kind: "issue", url: "https://github.com/acme/app/issues/43" }],
     errors: ["#404 wasn't found in acme/app."] });
   expect(lookup).toHaveBeenCalledWith("acme/app", 42);
 });
 
-it("uses the repository the sidebar sends for another host's workspace, and says when there is none", async () => {
+it("only looks numbers up in a repository the daemon has checked is the workspace's own", async () => {
   const lookup = vi.fn(async (repository: string, number: number) => `https://github.com/${repository}/issues/${number}`);
-  const resolve = serverWith([], lookup);
-  expect((await resolve({ hostId: "h2", workspaceId: "w", repository: "acme/web", numbers: [5] })).links[0]).toMatchObject({ url: "https://github.com/acme/web/issues/5" });
-  expect(await resolve({ hostId: "h2", workspaceId: "w", repository: null, numbers: [5] })).toEqual({ links: [],
-    errors: ["Couldn't tell which GitHub repository this workspace uses. Paste the full URL instead."] });
+  const resolve = serverWith([{ id: "w", gitRuntime: { remoteUrl: "https://github.com/acme/app.git" } },
+    { id: "local-only", gitRuntime: { remoteUrl: "/srv/git/app.git" } }], lookup);
+  // A repository sent by the client is never used: the lookup goes to the workspace's own remote.
+  expect((await resolve({ hostId: "h1", workspaceId: "w", repository: "someone/private", numbers: [5] })).links[0])
+    .toMatchObject({ url: "https://github.com/acme/app/issues/5" });
+  expect(lookup).not.toHaveBeenCalledWith("someone/private", expect.anything());
+  lookup.mockClear();
+  const useUrl = "Paste the full URL instead.";
+  // A workspace the daemon doesn't know, another host's workspace, or one without a GitHub remote: no lookup at all.
+  for (const input of [{ hostId: "h1", workspaceId: "missing" }, { hostId: "h2", workspaceId: "w", repository: "acme/web" },
+    { hostId: "h1", workspaceId: "local-only" }]) {
+    const result = await resolve({ ...input, numbers: [5] });
+    expect(result.links).toEqual([]);
+    expect(result.errors[0]).toContain(useUrl);
+  }
+  expect(lookup).not.toHaveBeenCalled();
 });

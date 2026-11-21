@@ -23,11 +23,9 @@ export function githubRepositoryOf(remote: string | null | undefined): string | 
   return match ? match[1].toLowerCase() : null;
 }
 
-// The workspace's repository comes from its git remote on this daemon's host; for another host's workspace the
-// sidebar sends it, read from that host's workspace list.
+// The daemon finds the workspace's repository from its git remote itself; only workspaces on its own host qualify.
 export const resolveLinkNumbers = defineRpc({
   name: "links.resolve",
-  input: z.object({ hostId: z.string().min(1), workspaceId: z.string().min(1), repository: z.string().nullable(),
-    numbers: z.array(z.number().int().positive()).max(50) }),
+  input: z.object({ hostId: z.string().min(1), workspaceId: z.string().min(1), numbers: z.array(z.number().int().positive()).max(50) }),
   output: z.object({ links: z.array(githubLinkSchema), errors: z.array(z.string()) }),
 });

@@ -14,22 +14,22 @@ export const lookUpNumber: NumberLookup = (repository, number) => new Promise((r
 
 type Remote = { id: string; gitRuntime?: { remoteUrl?: string | null } | null; project?: { checkout?: { remoteUrl?: string | null } | null } | null };
 
+// Numbers are only looked up in the repository the daemon finds for the workspace itself, never one the client names,
+// so the daemon's GitHub login can't be pointed at other repositories. Workspaces it can't check keep full URLs.
 export function registerLinkResolver(server: PluginServerContext, lookUp: NumberLookup = lookUpNumber) {
-  server.handle(resolveLinkNumbers, async ({ hostId, workspaceId, repository, numbers }, { paseo }) => {
-    let repo = repository;
-    if (!repo) {
-      const { self } = await paseo.hosts.list();
-      if (hostId === self.serverId) {
-        let cursor: string | undefined, found: Remote | undefined;
-        do {
-          const page = await paseo.workspaces.list({ page: { limit: 200, cursor } });
-          found = (page.entries as Remote[]).find((workspace) => workspace.id === workspaceId);
-          cursor = page.pageInfo.nextCursor ?? undefined;
-        } while (!found && cursor);
-        repo = githubRepositoryOf(found?.gitRuntime?.remoteUrl ?? found?.project?.checkout?.remoteUrl);
-      }
-    }
-    if (!repo) return { links: [], errors: ["Couldn't tell which GitHub repository this workspace uses. Paste the full URL instead."] };
+  server.handle(resolveLinkNumbers, async ({ hostId, workspaceId, numbers }, { paseo }) => {
+    const refuse = (reason: string) => ({ links: [], errors: [`${reason} Paste the full URL instead.`] });
+    const { self } = await paseo.hosts.list();
+    if (hostId !== self.serverId) return refuse("Numbers can only be looked up for workspaces on this plugin's host.");
+    let cursor: string | undefined, found: Remote | undefined;
+    do {
+      const page = await paseo.workspaces.list({ page: { limit: 200, cursor } });
+      found = (page.entries as Remote[]).find((workspace) => workspace.id === workspaceId);
+      cursor = page.pageInfo.nextCursor ?? undefined;
+    } while (!found && cursor);
+    if (!found) return refuse("Couldn't find this workspace.");
+    const repo = githubRepositoryOf(found.gitRuntime?.remoteUrl ?? found.project?.checkout?.remoteUrl);
+    if (!repo) return refuse("Couldn't tell which GitHub repository this workspace uses.");
     const links: GithubLink[] = [], errors: string[] = [];
     for (const number of numbers) {
       try { links.push(parseGithubLink(await lookUp(repo, number))); }

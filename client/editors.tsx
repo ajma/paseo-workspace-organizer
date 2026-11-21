@@ -172,7 +172,7 @@ export function WorkspaceEditor({ theme, title, workspaceKey, value, revision, s
         <Button theme={theme} label={looking ? "Looking up…" : "Add"} accessibilityLabel="Add link" disabled={saving || looking || !adding.trim()}
           onPress={() => void addTyped(links)} />
       </View>
-      <Text style={{ color: theme.colors.foregroundMuted, fontSize: font.sm }}>Paste a PR or issue URL from any repository, or a bare number like #456 to look it up in this workspace’s repository. Paseo’s detected PR and issues named in the workspace’s title or branch are found automatically.</Text>
+      <Text style={{ color: theme.colors.foregroundMuted, fontSize: font.sm }}>Paste a PR or issue URL from any repository, or a bare number like #456 to look it up in this workspace’s repository (workspaces on the plugin’s host only). Paseo’s detected PR and issues named in the workspace’s title or branch are found automatically.</Text>
     </View>
     <ErrorText theme={theme} message={error ?? saveError} />
     <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>

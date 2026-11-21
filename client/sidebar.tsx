@@ -16,7 +16,6 @@ import { exactTag, facetKeys, filtersSchema, hasFilters, matchesFilters, prFilte
 import { SearchToolbar } from "./search-toolbar";
 import { useQueuedSave } from "./queued-save";
 import { useBracketShortcuts } from "./paseo-shortcuts";
-import { githubRepositoryOf } from "../shared/link-resolve";
 import type { GithubLink } from "../shared/organization";
 import { chooseSidebarHost, initializeSidebarHost, useSidebarHosts } from "./sidebar-placement";
 import { sidebarHostFor } from "../shared/sidebar-placement";
@@ -62,7 +61,7 @@ function useNow(intervalMs: number) {
 }
 
 type ReadySettings = Extract<ReturnType<typeof useSettings<typeof organization.schema>>, { status: "ready" }>;
-type ResolveLinks = (input: { hostId: string; workspaceId: string; repository: string | null; numbers: number[] }) =>
+type ResolveLinks = (input: { hostId: string; workspaceId: string; numbers: number[] }) =>
   Promise<{ links: GithubLink[]; errors: string[] }>;
 type Editor = { kind: "group"; group?: Group; parentId: string | null } | { kind: "workspace"; key: string; title: string }
   | { kind: "rename"; reference: WorkspaceRef; title: string; defaultName: string } | null;
@@ -628,17 +627,12 @@ function WorkspaceTree({ theme, navigation, active, layout, settings, runtime, c
   const jumpToActive = useJumpToActive({ activeKey, listed: activeListed, hiddenBy: collapsedAround(activeChain, collapsed),
     expand: (ids) => setCollapsed(ids, false) });
   // No background of its own: the sidebar shows Paseo's sidebar color behind it.
-  // Bare PR or issue numbers are looked up in the workspace's repository: this daemon's host finds it from the
-  // workspace's git remote; for another host's workspace the sidebar reads it from that host's workspace list.
+  // Bare PR or issue numbers are looked up by this daemon in the workspace's own repository, which it finds from the
+  // workspace's git remote. Another host's workspace can't be checked here, so it takes full URLs only.
   const resolverFor = (key: string) => {
     if (!resolveLinks) return undefined;
     const [hostId, workspaceId] = JSON.parse(key) as [string, string];
-    return (numbers: number[]) => {
-      const elsewhere = hostId !== runtime?.hostId ? remoteWorkspaces?.get(hostId, workspaceId) as
-        { gitRuntime?: { remoteUrl?: string | null } | null; project?: { checkout?: { remoteUrl?: string | null } | null } | null } | undefined : undefined;
-      const repository = githubRepositoryOf(elsewhere?.gitRuntime?.remoteUrl ?? elsewhere?.project?.checkout?.remoteUrl);
-      return resolveLinks({ hostId, workspaceId, repository, numbers });
-    };
+    return (numbers: number[]) => resolveLinks({ hostId, workspaceId, numbers });
   };
   // The group and workspace editors float over the list below the toolbar, so they show wherever the list is scrolled.
   const editorPopover = editor?.kind === "group"
