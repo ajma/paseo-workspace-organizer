@@ -13,7 +13,7 @@
   <a href="https://github.com/ajma/paseo-workspace-organizer/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/ajma/paseo-workspace-organizer/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Paseo 0.16" src="https://img.shields.io/badge/Paseo-0.16-8b5cf6">
   <img alt="Desktop, web and mobile" src="https://img.shields.io/badge/runs%20on-desktop%20%C2%B7%20web%20%C2%B7%20mobile-0ea5e9">
-  <img alt="Version 0.1.2" src="https://img.shields.io/badge/version-0.1.2-10b981">
+  <img alt="Version 0.1.3" src="https://img.shields.io/badge/version-0.1.3-10b981">
 </p>
 
 ---

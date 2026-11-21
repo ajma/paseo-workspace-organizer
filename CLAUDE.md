@@ -59,7 +59,7 @@ The README's screenshots come from the preview with `?showcase` (add `&celebrate
 
 ## Repo rules
 
-- **Version:** the package is at **0.1.2**; change it only when the owner asks for a release. Settings schema versions are separate (see Settings versions).
+- **Version:** the package is at **0.1.3**; change it only when the owner asks for a release. Settings schema versions are separate (see Settings versions).
 - **User docs:** when a feature changes, update its row in the README's "What's built in" table, the behaviour in `docs/guide.md`, and `OVERVIEW.md`, the summary shipped with the package.
 - **Commits:** each commit is one coherent change that typechecks and passes its tests on its own.
 - **Comments:** say why in plain language, one or two lines, next to the code they explain.
