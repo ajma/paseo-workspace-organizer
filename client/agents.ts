@@ -1,13 +1,12 @@
-import { getPaseoClient, useAgents, type AgentRef, type WorkspaceRef } from "@getpaseo/plugin/client";
-import { useEffect, useSyncExternalStore } from "react";
+import { getPaseoClient, useAgents, type AgentRef } from "@getpaseo/plugin/client";
+import { useEffect, useMemo, useSyncExternalStore } from "react";
 import { buildProviderCatalog, type ProviderCatalog, type ProviderSnapshot } from "../shared/agent-labels";
 
 // One provider snapshot per host, refreshed when that host reports provider changes.
 const catalogs = new Map<string, ProviderCatalog | null>();
 const loading = new Map<string, () => void>();
 const listeners = new Set<() => void>();
-let version = 0;
-const notify = () => { version++; listeners.forEach((listener) => listener()); };
+const notify = () => listeners.forEach((listener) => listener());
 const subscribe = (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener); }; };
 
 function load(hostId: string) {
@@ -24,9 +23,8 @@ function load(hostId: string) {
 }
 
 export function useProviderCatalog(hostId: string): ProviderCatalog | null {
-  useSyncExternalStore(subscribe, () => version);
   useEffect(() => load(hostId), [hostId]);
-  return catalogs.get(hostId) ?? null;
+  return useSyncExternalStore(subscribe, () => catalogs.get(hostId) ?? null);
 }
 
 export function disposeProviderCatalogs() {
@@ -34,16 +32,30 @@ export function disposeProviderCatalogs() {
   loading.clear(); catalogs.clear(); notify();
 }
 
-// The workspace's most recently active top-level agent, and its subagents by state.
-export function useWorkspaceAgents(workspace: WorkspaceRef): { main: AgentRef | null; running: number; done: number; failed: number } {
+type SubtaskState = "running" | "done" | "failed";
+export type WorkspaceAgents = { main: AgentRef | null } & Record<SubtaskState, number>;
+export const noWorkspaceAgents: WorkspaceAgents = { main: null, running: 0, done: 0, failed: 0 };
+
+// Both queries scan the host's entire agent collection. Group by workspace once for the whole sidebar.
+export function useAgentsByWorkspace() {
   const main = useAgents({
-    where: (agent) => agent.workspace.key === workspace.key && !agent.background && !agent.parentAgentId,
+    where: (agent) => !agent.background && !agent.parentAgentId,
     orderBy: ["lastActivityAt", "desc"],
-  })[0] ?? null;
-  const subtasks = useAgents({
-    where: (agent) => agent.workspace.key === workspace.key && !agent.background && Boolean(agent.parentAgentId),
-    groupBy: (agent) => agent.status === "running" || agent.status === "initializing" ? "running" : agent.status === "error" ? "failed" : "done",
+    groupBy: (agent) => agent.workspace.key,
   });
-  const count = (key: string) => subtasks.find((group) => group.key === key)?.items.length ?? 0;
-  return { main, running: count("running"), done: count("done"), failed: count("failed") };
+  const subtasks = useAgents({
+    where: (agent) => !agent.background && Boolean(agent.parentAgentId),
+    groupBy: (agent) => JSON.stringify([agent.workspace.key,
+      agent.status === "running" || agent.status === "initializing" ? "running" : agent.status === "error" ? "failed" : "done"]),
+  });
+  return useMemo(() => {
+    const summaries = new Map<string, WorkspaceAgents>(main.map((group) => [group.key, { ...noWorkspaceAgents, main: group.items[0] ?? null }]));
+    for (const group of subtasks) {
+      const [key, state] = JSON.parse(group.key) as [string, SubtaskState];
+      const summary = summaries.get(key) ?? { ...noWorkspaceAgents };
+      summary[state] = group.items.length;
+      summaries.set(key, summary);
+    }
+    return summaries;
+  }, [main, subtasks]);
 }

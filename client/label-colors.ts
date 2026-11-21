@@ -27,8 +27,9 @@ export type LabelColorStore = ReturnType<typeof createLabelColorStore>;
 
 const none = () => () => {};
 const zero = () => 0;
+const noLabelColors: ReturnType<LabelColorStore["get"]> = [];
 export function useLabelColors(store?: LabelColorStore) {
   useSyncExternalStore(store?.subscribe ?? none, store?.getVersion ?? zero);
   useEffect(() => { store?.refresh(); }, [store]);
-  return store?.get() ?? [];
+  return store?.get() ?? noLabelColors;
 }

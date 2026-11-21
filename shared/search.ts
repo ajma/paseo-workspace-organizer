@@ -55,10 +55,21 @@ export type FilterFacts = Parameters<typeof matchesFilters>[0];
 export type FilterOptionIds = { readonly [K in keyof WorkspaceFilters]: readonly string[] };
 export const facetKey = (category: keyof WorkspaceFilters, id: string) => `${category}\u0000${id}`;
 export function facetKeys(facts: FilterFacts, filters: WorkspaceFilters, options: FilterOptionIds): string[] {
+  const prs = facts.prStates ?? [];
+  const matches = {
+    statuses: new Set([facts.indicator]),
+    tags: new Set(facts.tags.flatMap((tag) => [tagName(tag).toLowerCase(), exactTag(tag)])),
+    hostIds: new Set([facts.hostId]),
+    projectKeys: new Set([facts.projectKey]),
+    prs: new Set(prs.length ? ["any", ...prs.filter((state) => state !== "none")] : ["none"]),
+  };
+  const categories = Object.keys(options) as (keyof WorkspaceFilters)[];
+  const blocked = categories.filter((category) => filters[category].length && !filters[category].some((id) => matches[category].has(id)));
+  if (blocked.length > 1) return [];
   const keys: string[] = [];
-  for (const category of Object.keys(options) as (keyof WorkspaceFilters)[]) {
+  for (const category of blocked.length ? blocked : categories) {
     for (const id of options[category]) {
-      if (matchesFilters(facts, { ...filters, [category]: [id] } as WorkspaceFilters)) keys.push(facetKey(category, id));
+      if (matches[category].has(id)) keys.push(facetKey(category, id));
     }
   }
   return keys;

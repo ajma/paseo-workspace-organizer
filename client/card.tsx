@@ -15,7 +15,7 @@ import { useDragging } from "./drag";
 import { ARCHIVE_CONFIRM_MS } from "../shared/archive";
 import { Glow, Pulse, Spin } from "./motion";
 import { font } from "./typography";
-import { canFloat, showFloatingPanel, type PanelLine } from "./web";
+import { canFloat, showFloatingPanel, useRowVisible, type PanelLine } from "./web";
 
 export { displayPath, statusColor, type CardLink, type CardModel } from "./card-fields";
 
@@ -35,31 +35,36 @@ export type CardActions = {
 // React Native Web reports hover in Pressable's style callback; React Native's types do not include it.
 const isHovered = (state: object) => Boolean((state as { hovered?: boolean }).hovered);
 
-// Counts up each second while a run is in progress; only running rows tick.
-function LiveElapsed({ since, color }: { since: number; color: string }) {
+// Visible timers count up each second and catch up as soon as their row scrolls back into view.
+function LiveElapsed({ since, color, visible }: { since: number; color: string; visible: boolean }) {
   const [now, setNow] = useState(() => Date.now());
-  useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(timer); }, []);
+  useEffect(() => {
+    if (!visible) return;
+    setNow(Date.now());
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [visible]);
   const elapsed = formatDuration(Math.max(0, now - since));
   return <Text accessibilityLabel={`Running for ${elapsed}`} style={{ color, fontSize: metaFont }}>{elapsed}</Text>;
 }
 
-function PieceView({ piece, wrap, underline = false }: { piece: Piece; wrap: boolean; underline?: boolean }) {
+function PieceView({ piece, wrap, visible, underline = false }: { piece: Piece; wrap: boolean; visible: boolean; underline?: boolean }) {
   return <View style={{ flexDirection: "row", alignItems: "center", gap: 3, flexShrink: 1, minWidth: 0 }}>
     {piece.svg ? <Icon icon={{ svg: piece.svg }} size={metaIcon} color={piece.color} />
-      : piece.icon ? <Spin on={Boolean(piece.spin)}><Icon name={pascal(piece.icon)} size={metaIcon} color={piece.color} /></Spin> : null}
+      : piece.icon ? <Spin on={visible && Boolean(piece.spin)}><Icon name={pascal(piece.icon)} size={metaIcon} color={piece.color} /></Spin> : null}
     {piece.dot ? <View accessibilityLabel="Uncommitted changes" style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: piece.color }} /> : null}
-    {piece.liveSince !== undefined ? <LiveElapsed since={piece.liveSince} color={piece.color} />
+    {piece.liveSince !== undefined ? <LiveElapsed since={piece.liveSince} color={piece.color} visible={visible} />
       : piece.text ? <Text numberOfLines={wrap ? undefined : 1} style={{ color: piece.color, fontSize: metaFont, flexShrink: 1,
         fontWeight: piece.bold ? "600" : "400", fontFamily: piece.mono ? mono : undefined,
         textDecorationLine: underline ? "underline" : "none" }}>{piece.text}</Text> : null}
   </View>;
 }
 
-export function FieldView({ item, wrap = false, underline = false }: { item: FieldItem; wrap?: boolean; underline?: boolean }) {
+export function FieldView({ item, wrap = false, underline = false, visible = true }: { item: FieldItem; wrap?: boolean; underline?: boolean; visible?: boolean }) {
   return <View accessibilityLabel={item.label} style={{ flexDirection: "row", alignItems: "center", gap: 6, flexShrink: 1, minWidth: 0,
     flexWrap: wrap ? "wrap" : "nowrap" }}>
     {/* A hovered link underlines its number and state (its first piece) to show it can be clicked. */}
-    {item.pieces.map((piece, index) => <PieceView key={index} piece={piece} wrap={wrap} underline={underline && index === 0} />)}
+    {item.pieces.map((piece, index) => <PieceView key={index} piece={piece} wrap={wrap} visible={visible} underline={underline && index === 0} />)}
   </View>;
 }
 
@@ -91,13 +96,15 @@ function IconButton({ theme, icon, label, onPress, children, danger = false }: {
 }
 
 export function WorkspaceCardView({ theme, model, fields, labelLimit, titleLines, active = false, projectIcon, onOpen, onOpenLink, actions, children,
-  nodeRef, dropLine = null, backdrop }: {
+  nodeRef, dropLine = null, backdrop, observeVisibility = false }: {
   theme: Theme; model: CardModel; fields: ReadonlySet<CardField>; labelLimit: LabelLimit; titleLines: TitleLines;
   active?: boolean; projectIcon?: ReactNode; onOpen?: () => void; onOpenLink?: (url: string) => void; actions?: CardActions; children?: ReactNode;
   // Drag and drop: the row's element for the sidebar to drag and drop on, and where a drop would land.
   nodeRef?: (node: unknown) => void; dropLine?: "before" | "after" | null;
   // The solid color the row sits on when it isn't the sidebar's own, as inside a colored group.
   backdrop?: string;
+  // The sidebar pauses animation and elapsed time updates for rows outside its viewport.
+  observeVisibility?: boolean;
 }) {
   const has = (field: CardField) => fields.has(field);
   const { muted } = palette(theme);
@@ -165,10 +172,12 @@ export function WorkspaceCardView({ theme, model, fields, labelLimit, titleLines
   const color = statusColor(theme, model.indicator);
   const badge = model.indicator !== "done";
   const running = model.indicator === "running";
+  const visible = useRowVisible(rowRef, observeVisibility && (running ||
+    items.some(({ pieces }) => pieces.some((piece) => piece.spin || piece.liveSince !== undefined))));
   const leading = has("projectIcon") && projectIcon ? projectIcon
     : model.agent?.iconSvg ? <Icon icon={{ svg: model.agent.iconSvg }} size={16} color={muted} />
     // A running workspace's ring turns like a spinner, with a gap so the turning shows.
-    : <Spin on={running}><View style={{ width: 14, height: 14, borderRadius: 7, borderWidth: 2, borderColor: color,
+    : <Spin on={running && visible}><View style={{ width: 14, height: 14, borderRadius: 7, borderWidth: 2, borderColor: color,
       borderTopColor: running ? "transparent" : color }} /></Spin>;
 
   return <CardHoverProvider value={hover}><Pressable ref={setRow} testID="workspace-row" onPress={onOpen} accessible={false} focusable={false}
@@ -222,8 +231,8 @@ export function WorkspaceCardView({ theme, model, fields, labelLimit, titleLines
           <Text accessibilityElementsHidden importantForAccessibility="no" style={{ position: "absolute", left: 0, width: separatorGutter,
             textAlign: "center", color: muted, fontSize: metaFont }}>·</Text>
           {item.link ? <Tip accessibilityRole="link" accessibilityLabel={`Open ${item.link.kind === "pr" ? "PR" : "issue"} ${item.link.repository}#${item.link.number}`}
-            onPress={onOpenLink ? () => onOpenLink(item.link!.url) : undefined}>{(hovered) => <FieldView item={item} underline={hovered} />}</Tip>
-            : <Tip onPress={onOpen}><FieldView item={item} /></Tip>}
+            onPress={onOpenLink ? () => onOpenLink(item.link!.url) : undefined}>{(hovered) => <FieldView item={item} underline={hovered} visible={visible} />}</Tip>
+            : <Tip onPress={onOpen}><FieldView item={item} visible={visible} /></Tip>}
         </View>)}
       </View></View> : null}
       {labels.shown.length ? <View accessibilityLabel="Labels" style={{ flexDirection: "row", flexWrap: "wrap", gap: 5, paddingTop: 1, zIndex: 3, marginLeft: LINE_INSET }}>
@@ -273,11 +282,11 @@ export function WorkspaceCardView({ theme, model, fields, labelLimit, titleLines
     })() : null}
     {/* The open workspace: an accent bar along its left edge, with a bold title and a raised background. */}
     {/* Over the content rather than under it, so the hover buttons' solid backdrop takes the tint too; below the menu. */}
-    {running ? <Glow color={color} radius={8} dark={isDarkSurface(theme.colors.surface0)} /> : null}
+    {running ? <Glow color={color} radius={8} dark={isDarkSurface(theme.colors.surface0)} on={visible} /> : null}
     {/* A running, waiting or failed workspace: a bar in its status color down the left edge, tall enough to read the
         color at a glance. It takes the open row's place there; that row still has its raised background and bold title. */}
     {badge ? <View testID="status-bar" pointerEvents="none" style={{ position: "absolute", left: 0, top: 6, bottom: 6, width: 3 }}>
-      <Pulse on={running} style={{ flex: 1 }}>
+      <Pulse on={running && visible} style={{ flex: 1 }}>
         <View testID="status-bar-fill" style={{ flex: 1, borderRadius: 2, backgroundColor: color }} />
       </Pulse>
     </View> : null}

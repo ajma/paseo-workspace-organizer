@@ -1,10 +1,21 @@
 import type { PluginClientContext } from "@getpaseo/plugin/client";
 import { useSyncExternalStore } from "react";
 import { emptyDetails, mergeLinks, searchTerms, workspaceKey } from "../shared/organization";
-import { workspaceIndex, type IndexEvent } from "../shared/workspace-index";
+import { workspaceIndex, type IndexEntry, type IndexEvent } from "../shared/workspace-index";
 
 const RETRY_DELAYS_MS = [1000, 2000, 4000, 8000, 15000, 30000];
 const RETRIES_BEFORE_ERROR = 3;
+
+function sameItems<T>(before: readonly T[], after: readonly T[], equal: (a: T, b: T) => boolean = Object.is) {
+  return before === after || (before.length === after.length && before.every((item, i) => equal(item, after[i])));
+}
+
+function sameCommandEntries(before: IndexEntry[], after: IndexEntry[]) {
+  return sameItems(before, after, (a, b) =>
+    a.id === b.id && a.name === b.name && a.branch === b.branch && sameItems(a.labels, b.labels)
+    && sameItems(a.links, b.links, (left, right) => left.url === right.url && left.repository === right.repository
+      && left.kind === right.kind && left.number === right.number));
+}
 
 export function createWorkspaceIndex(client: PluginClientContext) {
   let snapshot: IndexEvent | null = null;
@@ -17,10 +28,7 @@ export function createWorkspaceIndex(client: PluginClientContext) {
   // with growing waits and only name the failure once several tries in a row have failed.
   let subscription: (() => void) | null = null, timer: ReturnType<typeof setTimeout> | undefined;
   let failures = 0, disposed = false;
-  const onEvent = (event: IndexEvent) => {
-    failures = 0;
-    snapshot = event;
-    error = event.error;
+  const updateCommands = (event: IndexEvent) => {
     const current = new Set<string>();
     if (event.organization) for (const entry of event.entries) {
       const details = event.organization.workspaces[workspaceKey(event.hostId, entry.id)] ?? emptyDetails();
@@ -28,7 +36,7 @@ export function createWorkspaceIndex(client: PluginClientContext) {
       const group = event.organization.groups.find((item) => item.id === details.groupId);
       const keywords = searchTerms(entry.name, entry.branch, entry.labels, details, links, group ? [group.name] : []);
       const title = `Open ${entry.name}${links.length ? ` · ${links.map((link) => `${link.kind === "pr" ? "PR" : "Issue"} #${link.number}`).join(" · ")}` : ""}`;
-      const signature = JSON.stringify([title, keywords]);
+      const signature = JSON.stringify([event.hostId, title, keywords]);
       current.add(entry.id);
       if (commands.get(entry.id)?.signature === signature) continue;
       void commands.get(entry.id)?.remove();
@@ -40,6 +48,17 @@ export function createWorkspaceIndex(client: PluginClientContext) {
       }) });
     }
     for (const [id, item] of commands) if (!current.has(id)) { void item.remove(); commands.delete(id); }
+  };
+  const onEvent = (event: IndexEvent) => {
+    const previous = snapshot;
+    failures = 0;
+    snapshot = event;
+    error = event.error;
+    // The stream also carries git and GitHub status. Neither changes how a workspace is found in Cmd+K.
+    if (!previous || previous.hostId !== event.hostId || !sameCommandEntries(previous.entries, event.entries)
+      || (previous.organization !== event.organization && JSON.stringify(previous.organization) !== JSON.stringify(event.organization))) {
+      updateCommands(event);
+    }
     notify();
   };
   function connect() {

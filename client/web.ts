@@ -1,4 +1,5 @@
-// Web-only reads of the Paseo app's own storage. Every export is a no-op on iOS and Android.
+// Browser APIs used by the plugin on the desktop and web.
+import { useEffect, useState, type RefObject } from "react";
 import { Platform } from "react-native";
 import { localHostIds } from "../shared/sidebar-placement";
 import { isIdentityColor, type IdentityColor } from "../shared/identity-colors";
@@ -149,6 +150,36 @@ const SYSTEM_FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helv
 
 export function canFloat(): boolean {
   return Platform.OS === "web" && Boolean(Reflect.get(globalThis, "document"));
+}
+
+type RowVisibilityObserver = { observe(row: object): void; unobserve(row: object): void };
+type RowVisibilityObserverClass = new (notify: (entries: { target: object; isIntersecting: boolean }[]) => void) => RowVisibilityObserver;
+let rowVisibility: { observer: RowVisibilityObserver; listeners: Map<object, (visible: boolean) => void> } | null = null;
+
+// One browser observer covers the animated rows. The viewport root also accounts for clipping by the sidebar scroll view.
+export function useRowVisible(ref: RefObject<object | null>, enabled: boolean): boolean {
+  const Observer = enabled && canFloat() ? Reflect.get(globalThis, "IntersectionObserver") as RowVisibilityObserverClass | undefined : undefined;
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const row = ref.current;
+    if (typeof Observer !== "function" || !row) { setVisible(false); return; }
+    if (!rowVisibility) {
+      const listeners = new Map<object, (visible: boolean) => void>();
+      const observer = new Observer((entries) => {
+        for (const { target, isIntersecting } of entries) listeners.get(target)?.(isIntersecting);
+      });
+      rowVisibility = { observer, listeners };
+    }
+    const { observer, listeners } = rowVisibility;
+    listeners.set(row, setVisible);
+    observer.observe(row);
+    return () => {
+      listeners.delete(row);
+      observer.unobserve(row);
+      if (!listeners.size) rowVisibility = null;
+    };
+  }, [ref, Observer]);
+  return typeof Observer !== "function" || visible;
 }
 
 function fontOf(source: unknown): string {

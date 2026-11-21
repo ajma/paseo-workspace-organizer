@@ -1,8 +1,9 @@
 import { expect, it, vi } from "vitest";
 import type { PluginClientContext } from "@getpaseo/plugin/client";
 import { createWorkspaceIndex } from "../client/workspace-index";
+import * as organization from "../shared/organization";
 import { emptyDetails, organizationSchema, parseLinks, workspaceKey } from "../shared/organization";
-import type { IndexEvent } from "../shared/workspace-index";
+import { indexEventSchema, type IndexEvent } from "../shared/workspace-index";
 
 it("keeps Cmd+K search current even with no sidebar mounted, removes deleted references and cleans up", async () => {
   let receive!: (event: IndexEvent) => void;
@@ -24,6 +25,35 @@ it("keeps Cmd+K search current even with no sidebar mounted, removes deleted ref
   expect((addCommandCenterItem.mock.calls[1][0] as any).keywords).not.toContain("#99");
   receive({ ...event, entries: [] }); expect(removers[1]).toHaveBeenCalledOnce();
   index.dispose(); expect(release).toHaveBeenCalledOnce();
+});
+
+it("publishes status changes without rebuilding Cmd+K search terms", () => {
+  let receive!: (event: IndexEvent) => void;
+  const searchTerms = vi.spyOn(organization, "searchTerms");
+  const handle = Object.assign(vi.fn(), { ready: Promise.resolve(), release: vi.fn() });
+  const client = { addCommandCenterItem: () => vi.fn(), subscribe: vi.fn((_contract, _input, callback) => { receive = callback; return handle; }) } as unknown as PluginClientContext;
+  const index = createWorkspaceIndex(client);
+  const listener = vi.fn();
+  index.subscribe(listener);
+  try {
+    const link = organization.parseGithubLink("https://github.com/o/r/pull/42");
+    const entries = Array.from({ length: 250 }, (_, i) => ({ id: `workspace-${i}`, name: `Workspace ${i}`, branch: null, labels: [], links: i ? [] : [link] }));
+    const event = { hostId: "host", organization: { workspaces: { [workspaceKey("host", "workspace-0")]: { tags: ["review"] } } },
+      organizationRevision: "1", error: null, entries };
+    receive(indexEventSchema.parse(event));
+    for (const [i, state] of ["draft", "open", "closed", "merged"].entries()) {
+      const first = { ...entries[0], git: { dirty: !!(i % 2), ahead: i, behind: 0 } };
+      receive(indexEventSchema.parse({ ...event, entries: [first, ...entries.slice(1)], github: {
+        [link.url]: { state, checks: null, review: null, updatedAt: null, stale: false, error: null },
+      } }));
+    }
+    expect(index.getSnapshot()?.github[link.url].state).toBe("merged");
+    expect(index.getSnapshot()?.entries[0].git?.ahead).toBe(3);
+    expect(listener).toHaveBeenCalledTimes(5);
+    expect(searchTerms).toHaveBeenCalledTimes(250);
+  } finally {
+    index.dispose(); searchTerms.mockRestore();
+  }
 });
 
 it("reconnects after the plugin or daemon restarts, and names the failure only if reconnecting keeps failing", async () => {

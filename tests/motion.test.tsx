@@ -8,7 +8,80 @@ import { AccessibilityInfo, Animated, Text } from "react-native";
 import { WorkspaceCardView } from "../client/card";
 import { cardFields } from "../shared/cards";
 
-afterEach(() => { vi.unstubAllGlobals(); Reflect.deleteProperty(Element.prototype, "animate"); });
+afterEach(() => {
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+  Reflect.deleteProperty(Element.prototype, "animate");
+});
+
+function controlRowVisibility() {
+  const listeners = new Map<Element, IntersectionObserverCallback>();
+  const observer = vi.fn(function (this: IntersectionObserver, callback: IntersectionObserverCallback) {
+    this.observe = (row) => { listeners.set(row, callback); };
+    this.unobserve = (row) => { listeners.delete(row); };
+    this.disconnect = () => { listeners.clear(); };
+  });
+  vi.stubGlobal("IntersectionObserver", observer);
+  return {
+    observer,
+    set(row: Element, isIntersecting: boolean) {
+      act(() => { listeners.get(row)?.([{ target: row, isIntersecting } as IntersectionObserverEntry], {} as IntersectionObserver); });
+    },
+  };
+}
+
+it("starts status animations when a row becomes visible and stops them when the last row leaves view", async () => {
+  vi.spyOn(AccessibilityInfo, "isReduceMotionEnabled").mockResolvedValue(false);
+  const loop = vi.spyOn(Animated, "loop");
+  const visibility = controlRowVisibility();
+  const model = sampleCard(Date.now());
+  render(<>
+    <WorkspaceCardView theme={theme} model={model} fields={new Set()} labelLimit="all" titleLines="2" observeVisibility />
+    <WorkspaceCardView theme={theme} model={model} fields={new Set()} labelLimit="all" titleLines="2" observeVisibility />
+  </>);
+  const [firstRow, secondRow] = screen.getAllByTestId("workspace-row") as HTMLElement[];
+  await act(async () => {});
+  expect(loop).not.toHaveBeenCalled();
+  expect(visibility.observer).toHaveBeenCalledTimes(1);
+
+  visibility.set(firstRow!, true);
+  const started = loop.mock.results.map((result) => result.value as { stop: () => void });
+  expect(started).toHaveLength(3);
+  const stops = started.map((animation) => vi.spyOn(animation, "stop"));
+  visibility.set(secondRow!, false);
+  expect(stops.every((stop) => stop.mock.calls.length === 0)).toBe(true);
+
+  visibility.set(firstRow!, false);
+  expect(stops.every((stop) => stop.mock.calls.length > 0)).toBe(true);
+  const [firstGlow, secondGlow] = screen.getAllByTestId("working-glow");
+  expect(Number(firstGlow?.style.opacity)).toBeGreaterThan(0);
+  expect(firstGlow?.style.opacity).toBe(secondGlow?.style.opacity);
+
+  visibility.set(secondRow!, true);
+  expect(loop).toHaveBeenCalledTimes(6);
+});
+
+it("suspends elapsed seconds offscreen and catches up when the row returns", () => {
+  vi.useFakeTimers();
+  const visibility = controlRowVisibility();
+  render(<WorkspaceCardView theme={theme} model={sampleCard(Date.now())} fields={new Set(["timer"])}
+    labelLimit="all" titleLines="2" observeVisibility />);
+  const row = screen.getByTestId("workspace-row");
+  const elapsed = () => screen.getByLabelText(/^Running for/).textContent;
+  visibility.set(row, false);
+  expect(elapsed()).toBe("12m 30s");
+  act(() => { vi.advanceTimersByTime(3000); });
+  expect(elapsed()).toBe("12m 30s");
+
+  visibility.set(row, true);
+  expect(elapsed()).toBe("12m 33s");
+  act(() => { vi.advanceTimersByTime(1000); });
+  expect(elapsed()).toBe("12m 34s");
+  visibility.set(row, false);
+  act(() => { vi.advanceTimersByTime(2000); });
+  expect(elapsed()).toBe("12m 34s");
+});
 
 it("marks running things to spin: pending CI checks and a running workspace's status", () => {
   const card = sampleCard(Date.now());

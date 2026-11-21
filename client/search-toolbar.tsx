@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import type { ProjectIconStore } from "./project-icons";
 import type { LabelColorStore } from "./label-colors";
-import { FilterMenu, type FilterOption, type FilterTab } from "./filter-menu";
+import { FilterMenuWithCounts, type FilterCountsQuery, type FilterOption, type FilterTab } from "./filter-menu";
 import { Pressable, Text, TextInput, View, type LayoutChangeEvent } from "react-native";
 import { Icon } from "@getpaseo/plugin/client/ui";
 import type { Organization } from "../shared/organization";
@@ -61,13 +61,13 @@ function IconButton({ theme, label, icon, onPress, pressed, disabled = false, hi
 }
 
 export function SearchToolbar({ theme, criteria, onChange, tags, hosts, projects, value, revision, save, disabled, onReload, sort, onSortChange, sortDisabled,
-  groupBy = "groups", onGroupByChange, onNewGroup, counts, view, openCardSettings, collapseAll, toolbar, hostChoice, history, icons, installationHostId, labelColors }: {
+  groupBy = "groups", onGroupByChange, onNewGroup, filterCountsQuery, view, openCardSettings, collapseAll, toolbar, hostChoice, history, icons, installationHostId, labelColors }: {
   theme: Theme; criteria: SearchCriteria; onChange: (criteria: SearchCriteria) => void;
   tags: FilterOption[]; hosts: FilterOption[]; projects: FilterOption[];
   value: Organization; revision: string; save: Save; disabled: boolean; onReload: () => void;
   sort: SortMode; onSortChange: (sort: SortMode) => void; sortDisabled: boolean;
   groupBy?: GroupBy; onGroupByChange?: (groupBy: GroupBy) => void; onNewGroup?: () => void;
-  counts?: (category: FilterTab, id: string) => number;
+  filterCountsQuery: FilterCountsQuery;
   // View: the card style (Simple, Full or Custom) and the way to card settings.
   view?: { ready: boolean; value: CardMode; set: (mode: CardMode) => void }; openCardSettings?: () => void;
   // Collapse or expand every group in one press.
@@ -178,9 +178,9 @@ export function SearchToolbar({ theme, criteria, onChange, tags, hosts, projects
       <ToolbarLine layer={3} trailing={<>{navButtons}{oneLine ? toolButtons : null}</>}>{items.slice(0, fit).map(renderItem)}</ToolbarLine>
       {oneLine ? null : <ToolbarLine layer={2} trailing={toolButtons}>{items.slice(fit).map(renderItem)}</ToolbarLine>}
       {/* The dropdowns open below this row, over the list, and fade and slide in and out. */}
-      <Dropdown theme={theme} open={filtersOpen} label="Filters">{() => <FilterMenu theme={theme} tab={tab} onTab={setTab}
+      <Dropdown theme={theme} open={filtersOpen} label="Filters">{() => <FilterMenuWithCounts theme={theme} tab={tab} onTab={setTab}
         filters={criteria.filters} onToggle={toggle} onSetTags={(tags) => onChange({ ...criteria, filters: { ...criteria.filters, tags } })}
-        onClose={() => setMenu(null)} tags={tags} hosts={hosts} projects={projects} counts={counts} icons={icons} installationHostId={installationHostId}
+        onClose={() => setMenu(null)} tags={tags} hosts={hosts} projects={projects} query={filterCountsQuery} icons={icons} installationHostId={installationHostId}
         labelColors={labelColors} />}</Dropdown>
       <Dropdown theme={theme} open={menu === "saved"} label="Saved searches">{() => draft ? <View style={{ gap: 7, padding: 10 }}>
         <Field theme={theme} label="Search name" value={draft.name} onChangeText={(name) => { setDraft({ ...draft, name }); setError(null); }} />

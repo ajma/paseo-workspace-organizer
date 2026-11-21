@@ -146,6 +146,48 @@ it("requests the entire directory and indexes workspaces beyond the default 200"
   h.controller.abort(); await h.settled;
 });
 
+it("skips identical directory snapshots after workspace activity and GitHub refreshes", async () => {
+  vi.useFakeTimers();
+  const h = await harness();
+  try {
+    const url = "https://github.com/o/r/pull/42";
+    const workspace = { id: "w", name: "Feature", githubRuntime: { pullRequest: { url } } };
+    const entries = [workspace, ...Array.from({ length: 249 }, (_, i) => ({ id: `workspace-${i}`, name: `Workspace ${i}` }))];
+    h.observer.snapshot({ entries });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(h.push.mock.lastCall?.[0].entries).toHaveLength(250);
+    expect(h.push.mock.lastCall?.[0].github[url]?.state).toBe("open");
+    h.push.mockClear();
+
+    for (let i = 0; i < 4; i++) {
+      h.observer.update({ type: "workspace_update", payload: { kind: "upsert", workspace: { ...workspace, updatedAt: String(i) } } });
+    }
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(h.push).toHaveBeenCalledTimes(0);
+  } finally {
+    h.controller.abort(); await h.settled;
+    vi.useRealTimers();
+  }
+});
+
+it("publishes distinct queued snapshots in order even when a value changes back", async () => {
+  vi.useFakeTimers();
+  const h = await harness();
+  try {
+    const workspace = { id: "w", name: "First" };
+    h.observer.snapshot({ entries: [workspace] });
+    await vi.advanceTimersByTimeAsync(0);
+    h.push.mockClear();
+    h.observer.snapshot({ entries: [{ ...workspace, name: "Second" }] });
+    h.observer.snapshot({ entries: [workspace] });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(h.push.mock.calls.map(([event]) => event.entries[0].name)).toEqual(["Second", "First"]);
+  } finally {
+    h.controller.abort(); await h.settled;
+    vi.useRealTimers();
+  }
+});
+
 it("finds a branch's PR itself when Paseo has not detected one, and keeps Paseo's when it has", async () => {
   const findPr = vi.fn(async (_directory: string, branch: string) => branch === "feat/found" ? "https://github.com/o/r/pull/77" : null);
   const h = await harness({ findPr, readStatus: async (link: any) => parseStatus(link.kind, { state: "MERGED" }, "2026-11-11T12:00:00Z") });
@@ -191,9 +233,11 @@ it("picks up an outside edit to the settings file and tells the sidebar its new 
   const h = await harness();
   h.observer.snapshot({ entries: [{ id: "w", name: "Feature" }] });
   await vi.waitFor(() => expect(h.push.mock.lastCall?.[0].organizationRevision).toBe("1"));
-  const link = parseGithubLink("https://github.com/o/r/issues/7");
-  h.editOutside({ workspaces: { [workspaceKey("host", "w")]: { links: [link] } } }, "2");
+  h.editOutside({}, "2");
   await vi.waitFor(() => expect(h.push.mock.lastCall?.[0].organizationRevision).toBe("2"));
+  const link = parseGithubLink("https://github.com/o/r/issues/7");
+  h.editOutside({ workspaces: { [workspaceKey("host", "w")]: { links: [link] } } }, "3");
+  await vi.waitFor(() => expect(h.push.mock.lastCall?.[0].organizationRevision).toBe("3"));
   expect(h.push.mock.lastCall?.[0].organization.workspaces[workspaceKey("host", "w")].links).toEqual([link]);
   h.controller.abort(); await h.settled;
 });

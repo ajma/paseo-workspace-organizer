@@ -19,11 +19,15 @@ const active = (w: Sortable) => lastActivityAt([w.lastPromptAt, w.statusEnteredA
 
 // Orders workspaces within each group. Manual uses the saved order, then name.
 export function compareWorkspaces(mode: SortMode, manualOrder: readonly string[]) {
+  const manualRanks = new Map<string, number>();
+  if (mode === "manual") {
+    manualOrder.forEach((key, index) => { if (!manualRanks.has(key)) manualRanks.set(key, index); });
+  }
   return (a: Sortable, b: Sortable): number => {
     if (mode === "name") return byName(a, b);
     if (mode === "activity") return newest(active(a), active(b)) || byName(a, b);
     if (mode === "created") return newest(created(a), created(b)) || byName(a, b);
-    const aIndex = manualOrder.indexOf(a.ref.key), bIndex = manualOrder.indexOf(b.ref.key);
-    return (aIndex < 0 ? Infinity : aIndex) - (bIndex < 0 ? Infinity : bIndex) || byName(a, b);
+    const aIndex = manualRanks.get(a.ref.key) ?? Infinity, bIndex = manualRanks.get(b.ref.key) ?? Infinity;
+    return aIndex - bIndex || byName(a, b);
   };
 }

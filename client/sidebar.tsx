@@ -2,7 +2,7 @@ import {
   getPaseoClient, openExternalUrl, useAgent, useHosts, useProjects, useSettings, useWorkspace, useWorkspaces,
   type AgentRef, type PluginSidebarViewProps, type WorkspaceRef,
 } from "@getpaseo/plugin/client";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { descendants, preferences, dissolveGroup, emptyDetails, matchesSearch, mergeLinks, orderLinks, organization, placeGroup, placeWorkspace, searchTerms,
   type Group, type Organization } from "../shared/organization";
@@ -12,7 +12,7 @@ import { Button, ErrorText, type Theme } from "./controls";
 import { GroupEditor, groupPath, RenameEditor, WorkspaceEditor, type Save } from "./editors";
 import { useWorkspaceIndex, type WorkspaceIndex } from "./workspace-index";
 import type { IndexEvent } from "../shared/workspace-index";
-import { exactTag, facetKey, facetKeys, filtersSchema, hasFilters, matchesFilters, prFilters, statuses, tagName, type FilterOptionIds } from "../shared/search";
+import { exactTag, facetKeys, filtersSchema, hasFilters, matchesFilters, prFilters, statuses, tagName, type FilterOptionIds } from "../shared/search";
 import { SearchToolbar } from "./search-toolbar";
 import { useQueuedSave } from "./queued-save";
 import { useBracketShortcuts } from "./paseo-shortcuts";
@@ -28,7 +28,7 @@ import { agentLabels } from "../shared/agent-labels";
 import { cards, defaultCardSettings, effectiveCard, type CardField, type CardMode, type LabelLimit, type TitleLines } from "../shared/cards";
 import { copyText, Icon, useToast } from "@getpaseo/plugin/client/ui";
 import { WorkspaceCardView, type CardLink, type CardModel } from "./card";
-import { useProviderCatalog, useWorkspaceAgents } from "./agents";
+import { noWorkspaceAgents, useAgentsByWorkspace, useProviderCatalog, type WorkspaceAgents } from "./agents";
 import { compareWorkspaces, type SortMode } from "../shared/sort";
 import { ProjectIconView, type ProjectIconStore } from "./project-icons";
 import { useLabelColors, type LabelColorStore } from "./label-colors";
@@ -49,6 +49,10 @@ import { fileNewWorkspaces, GROUP_METADATA_KEY } from "../shared/new-workspace-g
 import { identityText, isDarkSurface, tagGroupColor, type IdentityColor } from "../shared/identity-colors";
 
 type Snapshot = PluginWorkspaceSnapshot;
+const visibleWorkspace = (workspace: Snapshot) => !workspace.background && !workspace.archivingAt;
+const defaultDetails = emptyDetails();
+const noGithubStatuses: Record<string, GithubStatus> = {};
+const noWorkspaces: readonly WorkspaceRef[] = [];
 
 // One clock for every row so relative activity times stay current.
 function useNow(intervalMs: number) {
@@ -64,6 +68,8 @@ type Editor = { kind: "group"; group?: Group; parentId: string | null } | { kind
   | { kind: "rename"; reference: WorkspaceRef; title: string; defaultName: string } | null;
 
 type CardConfig = { fields: ReadonlySet<CardField>; labelLimit: LabelLimit; titleLines: TitleLines };
+type WorkspaceDrag = Extract<DragPayload, { kind: "workspace" }>;
+type RowDrop = (key: string, bucket: string, groupId: string | null | undefined, payload: WorkspaceDrag, position: DropPosition) => void;
 
 function linkTone(status: GithubStatus | undefined): CardLink["tone"] {
   if (status?.state === "merged") return "success";
@@ -78,13 +84,14 @@ function WithAgent({ agent, hostId, children }: { agent: AgentRef; hostId: strin
   return <>{children(snapshot ? { ...agentLabels(catalog, snapshot), modelId: snapshot.model, status: snapshot.status } : null)}</>;
 }
 
-function WorkspaceRow({ reference, theme, navigation, active, now, details, detectedLinks, git, github, hostLabel, hostIconOnly, hostColor, card, icons, installationHostId, labelList, onEdit, onRename, drag, openInBrowser, rowRef, backdrop }: {
-  reference: WorkspaceRef; theme: Theme; navigation: PluginSidebarViewProps["navigation"]; active: string | undefined; now: number;
+const WorkspaceRow = memo(function WorkspaceRow({ reference, theme, navigation, active, now, details, detectedLinks, git, github, hostLabel, hostIconOnly, hostColor, card, icons, installationHostId, labelList, setEditor, openInBrowser, rowRef, backdrop, main, running, done, failed, bucket, groupId, ownGroups, manual, busy, onDropRow }: WorkspaceAgents & {
+  reference: WorkspaceRef; theme: Theme; navigation: PluginSidebarViewProps["navigation"]; active: boolean; now: number;
   details: ReturnType<typeof emptyDetails>; detectedLinks: ReturnType<typeof mergeLinks>; git: CardModel["git"]; hostLabel?: string;
   hostIconOnly: boolean; hostColor: IdentityColor | null;
   github: Record<string, GithubStatus>; card: CardConfig; icons?: ProjectIconStore; installationHostId?: string;
   labelList: readonly { name: string; color: IdentityColor }[];
-  onEdit: (title: string) => void; onRename: (title: string, defaultName: string) => void; drag: DragSpec;
+  setEditor: (editor: Editor) => void;
+  bucket: string; groupId: string | null | undefined; ownGroups: boolean; manual: boolean; busy: boolean; onDropRow: RowDrop;
   openInBrowser?: (url: string, workspace: WorkspaceRef) => void;
   // The open workspace's row hands its element to the Current workspace button.
   rowRef?: (node: unknown) => void;
@@ -92,10 +99,25 @@ function WorkspaceRow({ reference, theme, navigation, active, now, details, dete
   backdrop?: string;
 }) {
   const workspace = useWorkspace(reference);
-  const agents = useWorkspaceAgents(reference);
   const toast = useToast();
   const [error, setError] = useState<string | null>(null);
-  const dnd = useDragDrop({ ...drag, label: workspace?.title ?? workspace?.name ?? "Workspace" });
+  const key = reference.key;
+  const dnd = useDragDrop({
+    payload: (ownGroups || manual) && !busy ? { kind: "workspace", key, bucket } : null,
+    label: workspace?.title ?? workspace?.name ?? "Workspace",
+    group: bucket,
+    // Manual sort allows positioning before or after a row. Other sorts only move a workspace into a different group.
+    decide: (payload, ratio) => {
+      if (payload.kind !== "workspace" || payload.key === key || busy) return null;
+      const sameGroup = payload.bucket === bucket;
+      if (!ownGroups && !sameGroup) return null;
+      if (!manual) return sameGroup ? null : "inside";
+      return ratio < 0.5 ? "before" : "after";
+    },
+    onDrop: (payload, position) => {
+      if (payload.kind === "workspace") onDropRow(key, bucket, groupId, payload, position);
+    },
+  });
   // Archiving animates the row away first, then asks the host; if that fails the row comes back.
   const [leaving, setLeaving] = useState(false);
   const archive = () => setLeaving(true); // setting it again while leaving changes nothing
@@ -116,18 +138,18 @@ function WorkspaceRow({ reference, theme, navigation, active, now, details, dete
     links: orderLinks(mergeLinks(detectedLinks, details.links)).map((link) => ({ ...link, status: githubStatusLabel(github[link.url]) || null,
       tone: linkTone(github[link.url]), hint: [githubStatusLabel(github[link.url]), github[link.url]?.error].filter(Boolean).join(". "),
       state: github[link.url]?.state, checks: github[link.url]?.checks ?? null, review: github[link.url]?.review ?? null })),
-    subtasks: { running: agents.running, done: agents.done, failed: agents.failed },
+    subtasks: { running, done, failed },
     timer: runTimes(workspace, now), lastActivity: activityAt === null ? null : formatActivity(activityAt, now),
   };
   const render = (agent: CardModel["agent"]) => <WorkspaceCardView theme={theme} model={{ ...base, agent }} fields={card.fields}
-    labelLimit={card.labelLimit} titleLines={card.titleLines} active={active === reference.key}
-    nodeRef={nodeRef} backdrop={backdrop} dropLine={dnd.position === "inside" ? null : dnd.position}
+    labelLimit={card.labelLimit} titleLines={card.titleLines} active={active}
+    nodeRef={nodeRef} observeVisibility backdrop={backdrop} dropLine={dnd.position === "inside" ? null : dnd.position}
     projectIcon={<ProjectIconView project={workspace.project} store={icons} installationHostId={installationHostId} size={font.md} color={theme.colors.foregroundMuted} />}
     onOpen={() => navigation.openWorkspace(reference)}
     actions={{
       onArchive: archive,
-      onEdit: () => onEdit(title),
-      onRename: () => onRename(title, workspace.name),
+      onEdit: () => setEditor({ kind: "workspace", key, title }),
+      onRename: () => setEditor({ kind: "rename", reference, title, defaultName: workspace.name }),
       onCopyPath: workspace.directory ? () => void copyText(workspace.directory).then(() => toast.show("Path copied")) : undefined,
       onCopyBranch: workspace.branch ? () => void copyText(workspace.branch!).then(() => toast.show("Branch name copied")) : undefined,
       pinned: Boolean(workspace.pinnedAt),
@@ -147,9 +169,9 @@ function WorkspaceRow({ reference, theme, navigation, active, now, details, dete
     <ErrorText theme={theme} message={error} />
   </WorkspaceCardView>;
   return <Leaving leaving={leaving} onGone={() => archiveWorkspace(reference, toast, undefined, () => setLeaving(false))}>
-    {agents.main ? <WithAgent agent={agents.main} hostId={reference.hostId}>{render}</WithAgent> : render(null)}
+    {main ? <WithAgent agent={main} hostId={reference.hostId}>{render}</WithAgent> : render(null)}
   </Leaving>;
-}
+});
 
 export function OrganizerSidebar(props: PluginSidebarViewProps & { index: WorkspaceIndex; icons?: ProjectIconStore; labelColors?: LabelColorStore;
   openCardSettings?: () => void; remoteWorkspaces?: RemoteWorkspaces; openInBrowser?: (url: string, workspace: WorkspaceRef) => void;
@@ -190,8 +212,10 @@ export function OrganizerSidebar(props: PluginSidebarViewProps & { index: Worksp
   } : undefined;
   useArchiveShortcut(props.active.workspace);
   const cardSettings = useSettings(cards);
-  const card = effectiveCard(cardSettings.status === "ready" ? cardSettings.values : defaultCardSettings(), props.layout.compact,
-    prefs ? prefs.titleLines : "2");
+  const cardValues = cardSettings.status === "ready" ? cardSettings.values : null;
+  const titleLines = prefs?.titleLines ?? "2";
+  const card = useMemo(() => effectiveCard(cardValues ?? defaultCardSettings(), props.layout.compact, titleLines),
+    [cardValues, props.layout.compact, titleLines]);
   if (settings.status !== "ready") return <View style={{ padding: 12, gap: 8 }}>
     <Text style={{ color: props.theme.colors.foregroundMuted, fontSize: font.md }}>{settings.status === "loading" ? "Loading workspace organization…" : settings.error}</Text>
     {settings.status !== "loading" ? <Button theme={props.theme} label="Retry loading organization" onPress={() => void settings.reload()} /> : null}
@@ -248,19 +272,36 @@ function WorkspaceTree({ theme, navigation, active, layout, settings, runtime, c
   const remote = useRemoteWorkspaces(remoteWorkspaces,
     hosts.filter((host) => host.status === "online" && host.serverId !== runtime?.hostId).map((host) => host.serverId));
   // PR links and git status: this installation's host from the daemon side, every other host from its own workspace list.
-  const entryFor = (hostId: string, id: string) => {
-    if (runtime?.hostId === hostId) return runtime.entries.find((item) => item.id === id) ?? null;
+  const indexEntries = runtime?.entries;
+  const entriesById = useMemo(() => new Map(indexEntries?.map((entry) => [entry.id, entry])), [indexEntries]);
+  const knownGithub = runtime?.github ?? noGithubStatuses;
+  const remoteDetails = useMemo(() => new WeakMap<NonNullable<ReturnType<RemoteWorkspaces["get"]>>, {
+    entry: ReturnType<typeof workspaceEntry>; github: Record<string, GithubStatus>;
+  }>(), [knownGithub]);
+  const remoteDetailsFor = (hostId: string, id: string) => {
     const workspace = remote?.get(hostId, id);
-    return workspace ? workspaceEntry(workspace) : null;
+    if (!workspace) return undefined;
+    const cached = remoteDetails.get(workspace);
+    if (cached) return cached;
+    const url = workspace.githubRuntime?.pullRequest?.url;
+    const status = url && !knownGithub[url] ? detectedStatus(workspace) : null;
+    const details = { entry: workspaceEntry(workspace), github: url && status ? { ...knownGithub, [url]: status } : knownGithub };
+    remoteDetails.set(workspace, details);
+    return details;
+  };
+  const entryFor = (hostId: string, id: string) => {
+    if (runtime?.hostId === hostId) return entriesById.get(id) ?? null;
+    return remoteDetailsFor(hostId, id)?.entry ?? null;
   };
   const githubFor = (hostId: string, id: string): Record<string, GithubStatus> => {
-    const workspace = runtime?.hostId === hostId ? undefined : remote?.get(hostId, id);
-    const url = workspace?.githubRuntime?.pullRequest?.url, status = workspace ? detectedStatus(workspace) : null;
-    return { ...(url && status ? { [url]: status } : {}), ...(runtime?.github ?? {}) };
+    if (runtime?.hostId === hostId) return knownGithub;
+    return remoteDetailsFor(hostId, id)?.github ?? knownGithub;
   };
   const value = settings.values;
-  const searching = Boolean(query.trim()) || hasFilters(filters);
-  const visibleWorkspace = (workspace: { background: boolean; archivingAt: string | null }) => !workspace.background && !workspace.archivingAt;
+  const queryActive = Boolean(query.trim());
+  const filtersActive = hasFilters(filters);
+  const searching = queryActive || filtersActive;
+  const agentsByWorkspace = useAgentsByWorkspace();
   const tagGroups = useWorkspaces({ where: visibleWorkspace, groupBy: (workspace) => {
     const names = [...workspace.labels, ...(value.workspaces[workspace.ref.key]?.tags ?? [])].map(tagName).filter(Boolean);
     return [...new Map(names.map((name) => [name.toLowerCase(), name]))].map(([key, title]) => ({ key, title }));
@@ -270,62 +311,79 @@ function WorkspaceTree({ theme, navigation, active, layout, settings, runtime, c
     return [...new Map(names.map((name) => [name.toLowerCase(), name]))].map(([key, title]) => ({ key, title }));
   } });
   // Each tag group lists its individual tags beneath it, unless its only tag is the group name itself.
+  const tagsByGroup = new Map<string, string[]>();
+  for (const tag of fullTags) {
+    const name = tag.title ?? tag.key;
+    const key = tagName(name).toLowerCase();
+    const group = tagsByGroup.get(key);
+    if (group) group.push(name);
+    else tagsByGroup.set(key, [name]);
+  }
   const tagOptions = tagGroups.map((group) => {
     const label = group.title ?? group.key;
-    const children = fullTags.map((tag) => tag.title ?? tag.key)
-      .filter((tag) => tagName(tag).toLowerCase() === group.key)
-      .sort((a, b) => a.localeCompare(b));
+    const children = tagsByGroup.get(group.key)?.sort((a, b) => a.localeCompare(b)) ?? [];
     const single = children.length === 1 && children[0].toLowerCase() === group.key;
     return { id: group.key, label, children: single ? [] : children.map((tag) => ({ id: exactTag(tag), label: tag })) };
   }).sort((a, b) => a.label.localeCompare(b.label));
   const projectGroups = useWorkspaces({ where: visibleWorkspace, groupBy: (workspace) => ({
     key: workspace.project.key, title: workspace.projectDisplayName }) });
-  const projectRefs = useProjects();
+  const projectRefs = new Map(useProjects().map((ref) => [ref.key, ref]));
+  const hostLabels = new Map(hosts.map((host) => [host.serverId, host.label]));
+  const projectNames = new Map<string, number>();
+  for (const group of projectGroups) {
+    const key = (group.title ?? group.key).toLowerCase();
+    projectNames.set(key, (projectNames.get(key) ?? 0) + 1);
+  }
   // Name each project plainly; add "on <host>" only when another listed project shares its name.
   const projectOptions = projectGroups.map((group) => {
     const name = group.title ?? group.key;
     const hostId = group.items[0]?.hostId;
-    const shared = projectGroups.filter((other) => (other.title ?? other.key).toLowerCase() === name.toLowerCase()).length > 1;
-    const hostLabel = hosts.find((host) => host.serverId === hostId)?.label ?? hostId;
+    const shared = (projectNames.get(name.toLowerCase()) ?? 0) > 1;
+    const hostLabel = hostId && (hostLabels.get(hostId) ?? hostId);
     return { id: group.key, label: shared && hostLabel ? `${name} on ${hostLabel}` : name,
-      project: projectRefs.find((ref) => ref.key === group.key) };
+      project: projectRefs.get(group.key) };
   }).sort((a, b) => a.label.localeCompare(b.label));
+  const projectByKey = new Map(projectOptions.map((option) => [option.id, option]));
   const prStatesFor = (workspace: Snapshot) => {
+    const pulls = mergeLinks(entryFor(workspace.hostId, workspace.id)?.links ?? [], value.workspaces[workspace.ref.key]?.links ?? [])
+      .filter((link) => link.kind === "pr");
+    if (!pulls.length) return [];
     const statuses = githubFor(workspace.hostId, workspace.id);
-    return mergeLinks(entryFor(workspace.hostId, workspace.id)?.links ?? [], value.workspaces[workspace.ref.key]?.links ?? [])
-      .filter((link) => link.kind === "pr").map((link) => statuses[link.url]?.state ?? "unknown");
+    return pulls.map((link) => statuses[link.url]?.state ?? "unknown");
   };
-  const factsFor = (workspace: Snapshot) => ({ indicator: workspace.indicator,
+  const factsFor = (workspace: Snapshot, withPrStates: boolean) => ({ indicator: workspace.indicator,
     tags: [...workspace.labels, ...(value.workspaces[workspace.ref.key]?.tags ?? [])],
-    hostId: workspace.hostId, projectKey: workspace.project.key, prStates: prStatesFor(workspace) });
+    hostId: workspace.hostId, projectKey: workspace.project.key, prStates: withPrStates ? prStatesFor(workspace) : undefined });
+  const groupPaths = new Map<string, string>();
   const matchesQuery = (workspace: Snapshot) => {
-    const details = value.workspaces[workspace.ref.key] ?? emptyDetails();
+    if (!queryActive) return true;
+    const details = value.workspaces[workspace.ref.key] ?? defaultDetails;
     const detected = entryFor(workspace.hostId, workspace.id)?.links ?? [];
+    if (details.groupId && !groupPaths.has(details.groupId)) groupPaths.set(details.groupId, groupPath(value.groups, details.groupId));
     return matchesSearch(query, searchTerms(workspace.title ?? workspace.name, workspace.branch, workspace.labels, details,
-      mergeLinks(detected, details.links), details.groupId ? [groupPath(value.groups, details.groupId)] : []));
+      mergeLinks(detected, details.links), details.groupId ? [groupPaths.get(details.groupId)!] : []));
   };
-  const shown = (workspace: Snapshot) => visibleWorkspace(workspace) && matchesFilters(factsFor(workspace), filters) && matchesQuery(workspace);
+  const shown = (workspace: Snapshot) => visibleWorkspace(workspace)
+    && (!filtersActive || matchesFilters(factsFor(workspace, filters.prs.length > 0), filters)) && matchesQuery(workspace);
   // How many workspaces each filter option would show, given the search text and the other tabs' selections.
   const facetOptions: FilterOptionIds = { statuses, prs: prFilters,
     tags: tagOptions.flatMap((option) => [option.id, ...(option.children ?? []).map((child) => child.id)]),
     hostIds: hosts.map((host) => host.serverId), projectKeys: projectOptions.map((option) => option.id) };
-  const facets = useWorkspaces({ where: (workspace) => visibleWorkspace(workspace) && matchesQuery(workspace),
-    groupBy: (workspace) => facetKeys(factsFor(workspace), filters, facetOptions) });
-  const filterCounts = new Map(facets.map((facet) => [facet.key, facet.items.length]));
-  const orderBy = compareWorkspaces(sort, value.workspaceOrder);
-  const refs = useWorkspaces({ where: shown, orderBy });
-  // Automatic groups: each workspace's host, project or most active PR.
-  const projectLabel = (key: string) => projectOptions.find((option) => option.id === key)?.label;
-  const autoGroups = useWorkspaces({ where: shown, orderBy, groupBy: (workspace) => {
-    if (groupBy === "host") return { key: workspace.hostId, title: hosts.find((host) => host.serverId === workspace.hostId)?.label ?? workspace.hostId };
-    if (groupBy === "project") return { key: workspace.project.key, title: projectLabel(workspace.project.key) ?? workspace.projectDisplayName };
+  const filterCountsQuery = { where: (workspace: Snapshot) => visibleWorkspace(workspace) && matchesQuery(workspace),
+    groupBy: (workspace: Snapshot) => facetKeys(factsFor(workspace, true), filters, facetOptions) };
+  const orderBy = useMemo(() => compareWorkspaces(sort, value.workspaceOrder), [sort, value.workspaceOrder]);
+  // Filter and sort once. Manual groups are laid out from the items in the single bucket.
+  const shownGroups = useWorkspaces({ where: shown, orderBy, groupBy: (workspace) => {
+    if (groupBy === "host") return { key: workspace.hostId, title: hostLabels.get(workspace.hostId) ?? workspace.hostId };
+    if (groupBy === "project") return { key: workspace.project.key, title: projectByKey.get(workspace.project.key)?.label ?? workspace.projectDisplayName };
     if (groupBy === "pr") return prBucket(prStatesFor(workspace));
-    // No grouping: one bucket, drawn without a header.
-    if (groupBy === "none") return { key: "all", title: "" };
     return "all";
   } });
+  const ownGroups = groupBy === "groups";
+  const groupRows = ownGroups ? shownGroups[0]?.items ?? noWorkspaces : noWorkspaces;
+  const hasRows = shownGroups.length > 0;
   const fixedOrder = groupBy === "pr" ? prBuckets : null;
-  const buckets = groupBy === "groups" ? [] : [...autoGroups].map((group) => ({ ...group,
+  const buckets = ownGroups ? [] : shownGroups.map((group) => ({ ...group,
     title: fixedOrder?.find((bucket) => bucket.key === group.key)?.title ?? group.title ?? group.key })).sort((a, b) => fixedOrder
     ? fixedOrder.findIndex((bucket) => bucket.key === a.key) - fixedOrder.findIndex((bucket) => bucket.key === b.key)
     : groupBy === "host" ? hosts.findIndex((host) => host.serverId === a.key) - hosts.findIndex((host) => host.serverId === b.key)
@@ -333,42 +391,52 @@ function WorkspaceTree({ theme, navigation, active, layout, settings, runtime, c
   const save: Save = (next, revision) => settings.save(next, revision);
   const closeEditor = () => { setEditor(null); if (settings.saveError) void settings.reload(); };
   const busy = settings.saving || editor !== null;
-  const ownGroups = groupBy === "groups";
   const manual = sort === "manual";
   const dragging = useDragging();
   // The group a dragged workspace would land in is outlined whole, so a drop anywhere on it is clearly "into this group".
   const targetGroup = useTargetGroup();
   const dropHighlight = (id: string) => targetGroup === id
     ? { outlineWidth: 1, outlineStyle: "solid", outlineColor: theme.colors.accent, backgroundColor: theme.colors.surface1 } as object : {};
-  const members = (id: string | null) => refs.filter((ref) => (value.workspaces[ref.key]?.groupId ?? null) === id);
-  const hasMatches = (id: string): boolean => members(id).length > 0 || value.groups.some((group) => group.parentId === id && hasMatches(group.id));
-  const countMembers = (id: string): number => members(id).length + value.groups.filter((group) => group.parentId === id).reduce((sum, group) => sum + countMembers(group.id), 0);
+  const groupLayout = useMemo(() => {
+    const children = new Map<string | null, Group[]>();
+    for (const group of value.groups) {
+      const siblings = children.get(group.parentId);
+      if (siblings) siblings.push(group);
+      else children.set(group.parentId, [group]);
+    }
+    const rows = new Map<string | null, WorkspaceRef[]>();
+    for (const ref of groupRows) {
+      const id = value.workspaces[ref.key]?.groupId ?? null;
+      const siblings = rows.get(id);
+      if (siblings) siblings.push(ref);
+      else rows.set(id, [ref]);
+    }
+    const counts = new Map<string, number>();
+    const count = (id: string): number => {
+      const known = counts.get(id);
+      if (known !== undefined) return known;
+      const total = (rows.get(id)?.length ?? 0) + (children.get(id) ?? []).reduce((sum, group) => sum + count(group.id), 0);
+      counts.set(id, total);
+      return total;
+    };
+    return { children, rows, count };
+  }, [groupRows, value.groups, value.workspaces]);
+  const members = (id: string | null) => groupLayout.rows.get(id) ?? noWorkspaces;
+  const countMembers = groupLayout.count;
   const commit = (next: Organization | null) => { if (next && !settings.saving) void save(next, settings.revision); };
 
-  // Rows: in Manual sort, drag a workspace onto another to drop it before or after; with your groups that also moves
-  // it into the row's group, while automatic groups only reorder within themselves. In any other sort the position
-  // comes from the sort, so dropping anywhere on another group just moves the workspace into it (the whole group lights
-  // up) and it takes its sorted place.
-  function rowDrag(key: string, bucket: string, siblings: readonly string[], groupId: string | null | undefined): DragSpec {
-    const movable = ownGroups || manual;
-    return {
-      payload: movable && !busy ? { kind: "workspace", key, bucket } : null,
-      group: bucket,
-      decide: (payload, ratio) => {
-        if (payload.kind !== "workspace" || payload.key === key || busy) return null;
-        const sameGroup = payload.bucket === bucket;
-        if (!ownGroups && !sameGroup) return null;
-        if (!manual) return sameGroup ? null : "inside";
-        return ratio < 0.5 ? "before" : "after";
-      },
-      onDrop: (payload, position) => {
-        if (payload.kind !== "workspace") return;
-        const rest = siblings.filter((item) => item !== payload.key);
-        const before = position === "before" ? key : position === "after" ? rest[rest.indexOf(key) + 1] ?? null : null;
-        commit(placeWorkspace(value, payload.key, { groupId, siblings, before }));
-      },
+  // Resolve siblings on drop so retained rows can reuse their callbacks across search and filter updates.
+  const latestRowDrop = useRef<RowDrop>(() => {});
+  const onDropRow = useCallback<RowDrop>((...args) => latestRowDrop.current(...args), []);
+  useLayoutEffect(() => {
+    latestRowDrop.current = (key, bucket, groupId, payload, position) => {
+      const rows = ownGroups ? members(groupId ?? null) : shownGroups.find((group) => group.key === bucket)?.items ?? noWorkspaces;
+      const siblings = rows.map((ref) => ref.key);
+      const rest = siblings.filter((item) => item !== payload.key);
+      const before = position === "before" ? key : position === "after" ? rest[rest.indexOf(key) + 1] ?? null : null;
+      commit(placeWorkspace(value, payload.key, { groupId, siblings, before }));
     };
-  }
+  });
   // Group headers (your groups only): a workspace drops inside; a group drops above, below or inside.
   function headerDrag(group: Group | null): DragSpec {
     const id = group?.id ?? null;
@@ -396,18 +464,19 @@ function WorkspaceTree({ theme, navigation, active, layout, settings, runtime, c
   }
   // `tints`: the whole-group tints of the colored groups the rows sit in, which hovered and open rows keep showing.
   function renderRows(rows: readonly WorkspaceRef[], bucket: string, groupId: string | null | undefined, tints: readonly string[] = []) {
-    const siblings = rows.map((row) => row.key);
     const backdrop = tints.length ? blend(listBackground ?? theme.colors.surface0, tints) : undefined;
-    return rows.map((ref) => <WorkspaceRow key={ref.key} reference={ref} theme={theme} navigation={navigation} now={now} openInBrowser={openInBrowser}
-      active={active.workspace?.key} details={value.workspaces[ref.key] ?? emptyDetails()}
-      github={githubFor(ref.hostId, ref.id)} card={card} icons={icons} installationHostId={runtime?.hostId} labelList={labelList}
-      git={entryFor(ref.hostId, ref.id)?.git ?? null}
-      detectedLinks={entryFor(ref.hostId, ref.id)?.links ?? []}
-      hostLabel={hosts.length > 1 && hostBadgeFor(ref.hostId) !== "hidden" ? hosts.find((host) => host.serverId === ref.hostId)?.label : undefined}
-      hostIconOnly={hostBadgeFor(ref.hostId) === "icon"} hostColor={hostAppearance.get(ref.hostId)?.color ?? null}
-      onEdit={(title) => setEditor({ kind: "workspace", key: ref.key, title })}
-      onRename={(title, defaultName) => setEditor({ kind: "rename", reference: ref, title, defaultName })}
-      drag={rowDrag(ref.key, bucket, siblings, groupId)} rowRef={ref.key === active.workspace?.key ? jumpToActive.rowRef : undefined} backdrop={backdrop} />);
+    return rows.map((ref) => {
+      const entry = entryFor(ref.hostId, ref.id);
+      const badge = hostBadgeFor(ref.hostId);
+      return <WorkspaceRow key={ref.key} reference={ref} theme={theme} navigation={navigation} now={now} openInBrowser={openInBrowser}
+        active={ref.key === active.workspace?.key} details={value.workspaces[ref.key] ?? defaultDetails} {...(agentsByWorkspace.get(ref.key) ?? noWorkspaceAgents)}
+        github={githubFor(ref.hostId, ref.id)} card={card} icons={icons} installationHostId={runtime?.hostId} labelList={labelList}
+        git={entry?.git ?? null} detectedLinks={entry?.links ?? defaultDetails.links}
+        hostLabel={hosts.length > 1 && badge !== "hidden" ? hostLabels.get(ref.hostId) : undefined}
+        hostIconOnly={badge === "icon"} hostColor={hostAppearance.get(ref.hostId)?.color ?? null}
+        setEditor={setEditor} bucket={bucket} groupId={groupId} ownGroups={ownGroups} manual={manual} busy={busy} onDropRow={onDropRow}
+        rowRef={ref.key === active.workspace?.key ? jumpToActive.rowRef : undefined} backdrop={backdrop} />;
+    });
   }
   const groupMenu = (group: Group) => busy ? [] : [
     { label: "Edit group", run: () => setEditor({ kind: "group", group, parentId: group.parentId }) },
@@ -416,8 +485,8 @@ function WorkspaceTree({ theme, navigation, active, layout, settings, runtime, c
   ];
   // `tints`: the tints of colored groups around this one that cover their whole group, outermost first.
   function renderGroups(parentId: string | null, depth = 0, tints: readonly string[] = []) {
-    const siblings = value.groups.filter((group) => group.parentId === parentId);
-    return siblings.filter((group) => !searching || hasMatches(group.id)).map((group, position) => {
+    const siblings = groupLayout.children.get(parentId) ?? [];
+    return siblings.filter((group) => !searching || countMembers(group.id) > 0).map((group, position) => {
       const isCollapsed = !searching && collapsed.includes(group.id);
       const { header, body } = tintsFor(group);
       const sticky = stickyAt(depth);
@@ -449,7 +518,7 @@ function WorkspaceTree({ theme, navigation, active, layout, settings, runtime, c
     return buckets.map((bucket, position) => {
       const id = `${groupBy}:${bucket.key}`;
       const isCollapsed = !searching && collapsed.includes(id);
-      const project = groupBy === "project" ? projectOptions.find((option) => option.id === bucket.key)?.project : undefined;
+      const project = groupBy === "project" ? projectByKey.get(bucket.key)?.project : undefined;
       const hostColor = groupBy === "host" ? hostAppearance.get(bucket.key)?.color : undefined;
       return <View key={id} style={{ zIndex: buckets.length - position + 1, marginBottom: 6 }}>
         <GroupHeader theme={theme} title={bucket.title} count={bucket.items.length} open={!isCollapsed} animate={!searching} sticky={stickyAt(0)}
@@ -469,7 +538,7 @@ function WorkspaceTree({ theme, navigation, active, layout, settings, runtime, c
   const headerBackground = { top: 0, background: theme.colors.surface0 };
   // Subgroups are separate items here, so each item carries the whole-group tints of the colored groups around it.
   function flatGroups(parentId: string | null, depth = 0, tints: readonly string[] = []): ListItem[] {
-    const siblings = value.groups.filter((group) => group.parentId === parentId && (!searching || hasMatches(group.id)));
+    const siblings = (groupLayout.children.get(parentId) ?? []).filter((group) => !searching || countMembers(group.id) > 0);
     return siblings.flatMap((group) => {
       const isCollapsed = !searching && collapsed.includes(group.id);
       const { header, body } = tintsFor(group);
@@ -551,10 +620,11 @@ function WorkspaceTree({ theme, navigation, active, layout, settings, runtime, c
   const anyOpen = groupIds.some((id) => !collapsed.includes(id));
   // The open workspace's sections, outermost first, for the Current workspace button to open when they're collapsed.
   const activeKey = active.workspace?.key ?? null;
-  const activeListed = activeKey !== null && refs.some((ref) => ref.key === activeKey);
+  const activeBucket = activeKey !== null ? shownGroups.find((bucket) => bucket.items.some((ref) => ref.key === activeKey)) : undefined;
+  const activeListed = Boolean(activeBucket);
   const activeChain = !activeListed || searching ? [] : ownGroups
     ? (() => { const chain = groupChain(value.groups, value.workspaces[activeKey!]?.groupId ?? null); return chain.length ? chain : showsUngrouped ? [UNGROUPED] : []; })()
-    : groupBy === "none" ? [] : buckets.filter((bucket) => bucket.items.some((ref) => ref.key === activeKey)).map((bucket) => `${groupBy}:${bucket.key}`);
+    : groupBy === "none" || !activeBucket ? [] : [`${groupBy}:${activeBucket.key}`];
   const jumpToActive = useJumpToActive({ activeKey, listed: activeListed, hiddenBy: collapsedAround(activeChain, collapsed),
     expand: (ids) => setCollapsed(ids, false) });
   // No background of its own: the sidebar shows Paseo's sidebar color behind it.
@@ -592,7 +662,7 @@ function WorkspaceTree({ theme, navigation, active, layout, settings, runtime, c
       <SearchToolbar theme={theme} criteria={{ query, filters }} onChange={(next) => { setQuery(next.query); setFilters(next.filters); }}
         tags={tagOptions}
         hosts={hosts.map((host) => ({ id: host.serverId, label: host.label }))}
-        projects={projectOptions} counts={(category, id) => filterCounts.get(facetKey(category, id)) ?? 0} icons={icons} installationHostId={runtime?.hostId} labelColors={labelColors}
+        projects={projectOptions} filterCountsQuery={filterCountsQuery} icons={icons} installationHostId={runtime?.hostId} labelColors={labelColors}
         value={value} revision={settings.revision} save={save} disabled={busy} onReload={() => void settings.reload()}
         sort={sort} onSortChange={setSort} sortDisabled={!canSort}
         groupBy={groupBy} onGroupByChange={setGroupBy} onNewGroup={busy ? undefined : () => { setGroupBy("groups"); setEditor({ kind: "group", parentId: null }); }}
@@ -612,7 +682,7 @@ function WorkspaceTree({ theme, navigation, active, layout, settings, runtime, c
       </View>
     </View>
     {(() => {
-      const empty = !refs.length ? <Text key="empty" style={{ color: theme.colors.foregroundMuted, fontSize: font.md, padding: 16 }}>
+      const empty = !hasRows ? <Text key="empty" style={{ color: theme.colors.foregroundMuted, fontSize: font.md, padding: 16 }}>
         {searching ? "No workspaces match. Adjust the search text or filters." : "No active workspaces. Create one with Paseo’s New workspace action."}
       </Text> : null;
       const contentStyle = { paddingHorizontal: layout.compact ? 4 : 6, paddingBottom: 20 };

@@ -1,7 +1,8 @@
+import { isDeepStrictEqual } from "node:util";
 import type { PluginHookContext, PluginServerContext } from "@getpaseo/plugin/server";
 import { mergeLinks, organization, workspaceKey } from "../shared/organization";
 import { detectedStatus, workspaceEntry } from "../shared/workspace-entry";
-import { workspaceIndex, type IndexEntry } from "../shared/workspace-index";
+import { workspaceIndex, type IndexEntry, type IndexEvent } from "../shared/workspace-index";
 import type { GithubStatus } from "../shared/github-status";
 import { createStatusCache, readGithubStatus, type StatusReader } from "./github-status";
 import { createPrLookup, findPullRequest, type PrFinder } from "./pr-lookup";
@@ -68,6 +69,7 @@ export function registerIndex(server: PluginServerContext, readStatus: StatusRea
     signal.addEventListener("abort", abort, { once: true });
     if (signal.aborted) finish();
     let sending = Promise.resolve();
+    let lastQueuedEvent: IndexEvent | undefined;
     const send = () => {
       if (closed || signal.aborted) return;
       const statuses = { ...github };
@@ -81,11 +83,14 @@ export function registerIndex(server: PluginServerContext, readStatus: StatusRea
           if (!fetched || fetched.state === "unknown" || nativeTime > fetchedTime) statuses[url] = status;
         }
       }
-      const event = { hostId: self.serverId,
+      const event: IndexEvent = { hostId: self.serverId,
         entries: [...workspaces.values()].filter((w) => !w.background && !w.archivingAt).map((w) => entry(w, prs, issues)),
         organization: document.status === "ready" ? document.values : null,
         error: document.status === "invalid" ? document.error : null, github: statuses,
         organizationRevision: document.status === "ready" ? document.revision : null };
+      // Compare against the last queued event so distinct updates keep their order even during a slow push.
+      if (isDeepStrictEqual(event, lastQueuedEvent)) return;
+      lastQueuedEvent = event;
       sending = sending.then(() => { if (!closed && !signal.aborted) return push(event); }).catch(finish);
     };
     const refresh = async () => {

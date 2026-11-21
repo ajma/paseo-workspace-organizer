@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, type ComponentProps } from "react";
 import { Icon } from "@getpaseo/plugin/client/ui";
-import type { ProjectRef } from "@getpaseo/plugin/client";
+import { useWorkspaces, type ProjectRef } from "@getpaseo/plugin/client";
+import type { PluginWorkspaceSnapshot } from "@getpaseo/plugin";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { prFilterLabels, prFilters, statusLabels, statuses, type PrFilter, type WorkspaceFilters } from "../shared/search";
 import type { Theme } from "./controls";
@@ -11,11 +12,22 @@ import { useLabelColors, type LabelColorStore } from "./label-colors";
 import { childChecked, groupState, toggleChild, toggleGroup, type GroupState } from "../shared/tag-tree";
 import { readHostColors } from "./web";
 import { identityColor, identityText, identityTint, isDarkSurface, tagGroupColor, type IdentityColor } from "../shared/identity-colors";
-import { exactTagPrefix, tagName } from "../shared/search";
+import { exactTagPrefix, facetKey, tagName } from "../shared/search";
 
 // Tag groups carry their individual tags as children, drawn indented beneath the group.
 export type FilterOption = { id: string; label: string; project?: ProjectRef; children?: FilterOption[]; exact?: boolean };
 export type FilterTab = keyof WorkspaceFilters;
+export type FilterCountsQuery = {
+  where: (workspace: PluginWorkspaceSnapshot) => boolean;
+  groupBy: (workspace: PluginWorkspaceSnapshot) => readonly string[];
+};
+
+// The dropdown mounts this only while its contents are visible.
+export function FilterMenuWithCounts({ query, ...props }: Omit<ComponentProps<typeof FilterMenu>, "counts"> & { query: FilterCountsQuery }) {
+  const facets = useWorkspaces(query);
+  const counts = new Map(facets.map((facet) => [facet.key, facet.items.length]));
+  return <FilterMenu {...props} counts={(category, id) => counts.get(facetKey(category, id)) ?? 0} />;
+}
 export const filterTabs: readonly { key: FilterTab; label: string; singular: string; plural: string }[] = [
   { key: "statuses", label: "Status", singular: "status", plural: "statuses" },
   { key: "tags", label: "Tags", singular: "tag", plural: "tags" },

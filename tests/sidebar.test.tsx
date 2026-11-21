@@ -5,9 +5,10 @@ import { useEffect, useState } from "react";
 import { View } from "react-native";
 import { HINT_DELAY_MS } from "../client/hint";
 import { createProjectIconStore } from "../client/project-icons";
-import { archiveCalls, changeOrganization, failArchives, failRenames, getDocument, getOrganization, makeIndex, reloadCalls, renameCalls, resetHost, setDocument, setHostLabels, setWorkspaces, theme, workspace } from "../preview/host";
+import { agent, archiveCalls, changeOrganization, failArchives, failRenames, getDocument, getOrganization, makeIndex, reloadCalls, renameCalls, resetHost, setAgents, setDocument, setHostLabels, setWorkspaces, theme, workspace } from "../preview/host";
 import { placeSidebar } from "../client/sidebar-placement";
 import { emptyDetails, workspaceKey } from "../shared/organization";
+import * as search from "../shared/search";
 
 beforeEach(resetHost);
 const show = () => render(<OrganizerSidebar theme={theme} layout={{ compact: true, platform: "web" }}
@@ -34,6 +35,46 @@ const typeSearch = (value: string) => {
   if (!screen.queryByRole("textbox", { name: "Search workspaces" })) fireEvent.click(screen.getByRole("button", { name: "Show search" }));
   fireEvent.change(screen.getByRole("textbox", { name: "Search workspaces" }), { target: { value } });
 };
+
+it("computes live filter counts only while the Filters menu is open", () => {
+  const count = vi.spyOn(search, "facetKeys");
+  try {
+    show();
+    typeSearch("Restructure");
+    expect(count).not.toHaveBeenCalled();
+    openFilterTab("Status");
+    expect(within(screen.getByRole("checkbox", { name: "Filter status Running" })).getByLabelText("1 workspaces")).toBeTruthy();
+  } finally {
+    count.mockRestore();
+  }
+});
+
+it("reuses cards when a search leaves the displayed rows unchanged", () => {
+  let cardReads = 0;
+  const item = workspace("row-0", "Workspace zero");
+  setWorkspaces([{ ...item, get directory() { cardReads++; return item.directory; } }]);
+  show();
+  cardReads = 0;
+  typeSearch("Workspace");
+  expect(screen.getByRole("button", { name: /^Open Workspace zero/ })).toBeTruthy();
+  expect(cardReads).toBe(0);
+});
+
+it("shares agent collection scans across workspace rows", async () => {
+  setWorkspaces(Array.from({ length: 8 }, (_, i) => workspace("row-" + i, "Workspace " + i)));
+  let visits = 0;
+  const root = agent("main", "row-0");
+  const child = agent("child", "row-0", { parentAgentId: "main", status: "running" });
+  const counted = [root, child].map((item) => ({
+    ...item, get background() { visits++; return item.background; },
+    get workspace() { visits++; return item.workspace; },
+  }));
+  setDocument("cards", { mode: "full" });
+  show();
+  await act(async () => { setAgents(counted); });
+  expect(screen.getByText("1 running")).toBeTruthy();
+  expect(visits).toBeLessThan(8 * counted.length * 2);
+});
 
 it("renders multiline subtitles, tags and each PR and issue link", () => {
   show();

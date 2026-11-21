@@ -67,12 +67,12 @@ export function Pulse({ on = true, style, children }: { on?: boolean; style?: Vi
 export const WORKING_GLOW = { light: { low: 0.01, high: 0.05 }, dark: { low: 0.03, high: 0.12 }, cycleMs: 3000 };
 // Points along a cycle at which the breathing curve is sampled for Animated's interpolation.
 const CURVE_STEPS = Array.from({ length: 25 }, (_, i) => i / 24);
-// A faint wash of `color` over its parent that slowly brightens and fades, for a row whose workspace is working. With
-// reduced motion it holds a steady faint tint, so the row still reads as working.
-export function Glow({ color, radius, dark }: { color: string; radius: number; dark: boolean }) {
+// A faint wash of `color` over its parent that slowly brightens and fades, for a row whose workspace is working. When
+// the animation is paused or reduced, it holds a steady faint tint.
+export function Glow({ color, radius, dark, on = true }: { color: string; radius: number; dark: boolean; on?: boolean }) {
   const range = dark ? WORKING_GLOW.dark : WORKING_GLOW.light;
   // Time runs steadily; the breathing curve shapes it into an even rise and fall.
-  const phase = useSharedLoop("glow", true, WORKING_GLOW.cycleMs, 0.25, Easing.linear);
+  const phase = useSharedLoop("glow", on, WORKING_GLOW.cycleMs, 0.25, Easing.linear);
   const opacity = phase.interpolate({ inputRange: CURVE_STEPS, outputRange: CURVE_STEPS.map((t) => range.low + (range.high - range.low) * breath(t)) });
   return <Animated.View testID="working-glow" pointerEvents="none"
     style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, borderRadius: radius, backgroundColor: color, opacity, zIndex: 15 }} />;
