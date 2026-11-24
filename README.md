@@ -11,7 +11,7 @@
 
 <p align="center">
   <a href="https://github.com/ajma/paseo-workspace-organizer/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/ajma/paseo-workspace-organizer/actions/workflows/ci.yml/badge.svg"></a>
-  <img alt="Paseo 0.16" src="https://img.shields.io/badge/Paseo-0.16-8b5cf6">
+  <img alt="Paseo 0.16 or later" src="https://img.shields.io/badge/Paseo-0.16%2B-8b5cf6">
   <img alt="Desktop, web and mobile" src="https://img.shields.io/badge/runs%20on-desktop%20%C2%B7%20web%20%C2%B7%20mobile-0ea5e9">
   <img alt="Version 0.1.3" src="https://img.shields.io/badge/version-0.1.3-10b981">
 </p>
@@ -101,7 +101,7 @@ See the [**user guide**](docs/guide.md) for exactly how each feature behaves.
 
 ## Quick start
 
-1. **Check your version.** Run the Paseo app and daemon at **0.16** (0.16 betas included).
+1. **Check your version.** Run Paseo **0.16 or later** on both the app and the daemon.
 2. **Install the plugin:**
    ```sh
    paseo plugin install npm:@ajma/paseo-workspace-organizer
